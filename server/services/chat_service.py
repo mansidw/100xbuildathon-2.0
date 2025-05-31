@@ -3,7 +3,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.utilities import SQLDatabase
 from dotenv import load_dotenv
 import os
-import sqlite3
+import mysql.connector
 import pandas as pd
 import requests
 from PyPDF2 import PdfReader
@@ -38,23 +38,30 @@ class ChatService:
             verbose=True
         )
         
-        self.db_path = "candidates.db"
+        # Initialize MySQL connection
+        self.connection_string = os.getenv('CONNECTION_URL')
         self._init_db()
 
     def _init_db(self):
-        conn = sqlite3.connect(self.db_path)
-        c = conn.cursor()
-        c.execute('''CREATE TABLE IF NOT EXISTS rejected_candidates
-                    (name TEXT, reason TEXT)''')
-        conn.commit()
-        conn.close()
+        try:
+            # Create rejected_candidates table if it doesn't exist
+            db = SQLDatabase.from_uri(self.connection_string)
+            db.run("""
+                CREATE TABLE IF NOT EXISTS rejected_candidates (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    name VARCHAR(255),
+                    reason TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+        except Exception as e:
+            raise Exception(f"Error initializing database: {str(e)}")
 
     def process_query(self, table_name, query):
         try:
             # Create database connection
-            connection_string = os.getenv('CONNECTION_URL')
             db = SQLDatabase.from_uri(
-                connection_string,
+                self.connection_string,
                 include_tables=[table_name]
             )
             
@@ -101,13 +108,18 @@ class ChatService:
             columns = json.loads(result)
             
             # Create table
-            conn = sqlite3.connect(self.db_path)
-            c = conn.cursor()
+            db = SQLDatabase.from_uri(self.connection_string)
             
             # Add score column
             columns.append("score")
-            create_table_sql = f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join([f'{col} TEXT' for col in columns])})"
-            c.execute(create_table_sql)
+            create_table_sql = f"""
+                CREATE TABLE IF NOT EXISTS {table_name} (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    {', '.join([f'{col} VARCHAR(255)' for col in columns])},
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """
+            db.run(create_table_sql)
             
             # Process each candidate
             for _, row in df.iterrows():
@@ -128,12 +140,10 @@ class ChatService:
                 candidate_info['score'] = str(score)
                 
                 # Insert into table
-                placeholders = ', '.join(['?' for _ in columns])
+                placeholders = ', '.join(['%s' for _ in columns])
                 values = [candidate_info.get(col, '') for col in columns]
-                c.execute(f"INSERT INTO {table_name} VALUES ({placeholders})", values)
-            
-            conn.commit()
-            conn.close()
+                insert_sql = f"INSERT INTO {table_name} ({', '.join(columns)}) VALUES ({placeholders})"
+                db.run(insert_sql, values)
             
             return {"message": "Processing completed successfully"}
             
@@ -181,29 +191,23 @@ class ChatService:
         return float(response.content.strip())
 
     def _add_to_rejected(self, name, reason):
-        conn = sqlite3.connect(self.db_path)
-        c = conn.cursor()
-        c.execute("INSERT INTO rejected_candidates VALUES (?, ?)", (name, reason))
-        conn.commit()
-        conn.close()
+        db = SQLDatabase.from_uri(self.connection_string)
+        db.run(
+            "INSERT INTO rejected_candidates (name, reason) VALUES (%s, %s)",
+            (name, reason)
+        )
 
     def get_all_tables(self):
-        conn = sqlite3.connect(self.db_path)
-        c = conn.cursor()
-        c.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        tables = [row[0] for row in c.fetchall()]
-        conn.close()
-        return tables
+        db = SQLDatabase.from_uri(self.connection_string)
+        result = db.run("SHOW TABLES")
+        return [row[0] for row in result]
 
     def get_table_insights(self, table_name):
-        conn = sqlite3.connect(self.db_path)
-        c = conn.cursor()
-        c.execute(f"SELECT * FROM {table_name}")
-        columns = [description[0] for description in c.description]
-        rows = c.fetchall()
-        conn.close()
+        db = SQLDatabase.from_uri(self.connection_string)
+        columns = db.run(f"SHOW COLUMNS FROM {table_name}")
+        data = db.run(f"SELECT * FROM {table_name}")
         
         return {
-            "columns": columns,
-            "data": [dict(zip(columns, row)) for row in rows]
+            "columns": [col[0] for col in columns],
+            "data": [dict(zip([col[0] for col in columns], row)) for row in data]
         }
