@@ -3,6 +3,8 @@ import useChat from '../../hooks/useChat';
 import ChatSidebar from './ChatSidebar';
 import ChatMessage from './ChatMessage';
 import NewChatModal from './NewChatModal';
+import { useState } from 'react';
+import toast from 'react-hot-toast';
 
 const RecruiterChatInterface = () => {
   const {
@@ -29,10 +31,26 @@ const RecruiterChatInterface = () => {
     sendMessage
   } = useChat();
 
+  const [isLoading, setIsLoading] = useState(false);
+
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      handleSendMessage();
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!message.trim()) return;
+
+    const currentMessage = message;
+    setMessage(''); // Clear input immediately
+
+    try {
+      await sendMessage(currentMessage);
+    } catch (error) {
+      toast.error('Failed to send message');
+      console.error('Error sending message:', error);
     }
   };
 
@@ -103,8 +121,12 @@ const RecruiterChatInterface = () => {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {activeChat.messages.map(message => (
-                    <ChatMessage key={message.id} message={message} />
+                  {activeChat.messages.map((message, index) => (
+                    <ChatMessage
+                      key={index}
+                      message={message}
+                      isLoading={message.isLoading}
+                    />
                   ))}
                 </div>
               )}
@@ -126,7 +148,7 @@ const RecruiterChatInterface = () => {
                   />
                 </div>
                 <button
-                  onClick={sendMessage}
+                  onClick={handleSendMessage}
                   disabled={!message.trim()}
                   className="px-4 py-4 bg-white text-black hover:bg-gray-100 disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed rounded-xl transition-colors"
                 >
