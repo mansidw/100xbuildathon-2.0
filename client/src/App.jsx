@@ -2,18 +2,16 @@
 import { Route, Routes } from "react-router-dom";
 import { Toaster } from "sonner";
 import RecruiterChatInterface from "./components/chat/RecruiterChatInterface";
+import Dashboard from "./pages/Dashboard";
 
 const App = () => {
-  const options = {
-    api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
-    defaults: "2025-05-24",
-  };
   
   return (
     <div>
       <Toaster position="bottom-right" richColors />
       <Routes>
         <Route path="/" element={<RecruiterChatInterface />} />
+        <Route path="/dashboard" element={<Dashboard />} />
       </Routes>
     </div>
   );

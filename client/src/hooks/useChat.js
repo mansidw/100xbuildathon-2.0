@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { createNewChat, sendChatMessage, getTables } from '../services/api';
 import { generateTableName } from '../config/constants';
 import { toast } from 'sonner';
+import posthog from 'posthog-js';
 
 export const useChat = () => {
   const [chats, setChats] = useState([]);
@@ -83,6 +84,12 @@ export const useChat = () => {
 
     setIsProcessing(true);
     const tableName = generateTableName(roleName);
+    posthog.capture("create_new_chat", {
+    timestamp: new Date().toISOString(),
+    properties: {
+      buttonName: 'Create New Chat',   
+ },
+  });
     
     // Show initial processing toast
     toast.info(`Processing ${candidatesFile.name} for ${roleName} position...`, {
