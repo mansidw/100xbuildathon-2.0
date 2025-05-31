@@ -1,6 +1,8 @@
 from crewai import Agent, Task, Crew
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.utilities import SQLDatabase
+from langchain_community.agent_toolkits.sql.base import create_sql_agent
+from langchain_community.agent_toolkits import SQLDatabaseToolkit
 from dotenv import load_dotenv
 import os
 import MySQLdb
@@ -16,19 +18,9 @@ load_dotenv()
 
 class ChatService:
     def __init__(self):
-        # Initialize the LLM with Gemini
         self.llm = ChatGoogleGenerativeAI(
             model="gemini-2.0-flash",
             google_api_key=os.getenv('GOOGLE_API_KEY')
-        )
-        
-        # Create agents
-        self.sql_expert = Agent(
-            role='SQL Expert',
-            goal='Write and execute SQL queries accurately',
-            backstory='Expert in SQL and database management',
-            llm=self.llm,
-            verbose=True
         )
         
         self.data_processor = Agent(
@@ -39,13 +31,11 @@ class ChatService:
             verbose=True
         )
         
-        # Initialize MySQL connection
         self.connection_string = os.getenv('CONNECTION_URL')
         self._init_db()
 
     def _init_db(self):
         try:
-            # Create rejected_candidates table if it doesn't exist
             db = SQLDatabase.from_uri(self.connection_string)
             db.run("""
                 CREATE TABLE IF NOT EXISTS rejected_candidates (
@@ -60,34 +50,29 @@ class ChatService:
 
     def process_query(self, table_name, query):
         try:
-            # Create database connection
             db = SQLDatabase.from_uri(
                 self.connection_string,
                 include_tables=[table_name]
             )
             
-            # Create tasks for the crew
-            sql_task = Task(
-                description=f"Write and execute a SQL query for the following request: {query}\nOnly query the table '{table_name}'.",
-                agent=self.sql_expert
+            toolkit = SQLDatabaseToolkit(db=db, llm=self.llm)
+            agent = create_sql_agent(
+                llm=self.llm,
+                toolkit=toolkit,
+                verbose=True,
+                agent_kwargs={
+                    "prefix": f"You are a SQL expert. You can only query the table '{table_name}'. "
+                              "Do not attempt to query any other tables. If the query requires joining "
+                              "with other tables, inform the user that you can only work with the specified table."
+                }
             )
             
-            # Create and run the crew
-            crew = Crew(
-                agents=[self.sql_expert],
-                tasks=[sql_task],
-                verbose=True
-            )
-            
-            result = crew.kickoff()
-            return result
-            
+            return agent.run(query)
         except Exception as e:
             raise Exception(f"Error processing query: {str(e)}")
 
     def process_new_chat(self, df, jd_text, table_name):
         try:
-            # Create tasks for the crew
             analysis_task = Task(
                 description=f"Analyze this job description and determine required columns for the candidates table:\n{jd_text}",
                 agent=self.data_processor
@@ -98,7 +83,6 @@ class ChatService:
                 agent=self.data_processor
             )
             
-            # Create and run the crew
             crew = Crew(
                 agents=[self.data_processor],
                 tasks=[analysis_task, processing_task],
@@ -108,10 +92,8 @@ class ChatService:
             result = crew.kickoff()
             columns = json.loads(result)
             
-            # Create table
             db = SQLDatabase.from_uri(self.connection_string)
             
-            # Add score column
             columns.append("score")
             create_table_sql = f"""
                 CREATE TABLE IF NOT EXISTS {table_name} (
@@ -122,25 +104,19 @@ class ChatService:
             """
             db.run(create_table_sql)
             
-            # Process each candidate
             for _, row in df.iterrows():
-                # Download and process resume
                 resume_text = self._download_and_extract_resume(row['pdf_url'])
                 
-                # Background check
                 background_check = self._perform_background_check(resume_text, row['linkedin_url'])
                 if not background_check['passed']:
                     self._add_to_rejected(row['name'], background_check['reason'])
                     continue
                 
-                # Extract candidate info
                 candidate_info = self._extract_candidate_info(resume_text)
                 
-                # Calculate score
                 score = self._calculate_score(candidate_info, jd_text)
                 candidate_info['score'] = str(score)
                 
-                # Insert into table
                 placeholders = ', '.join(['%s' for _ in columns])
                 values = [candidate_info.get(col, '') for col in columns]
                 insert_sql = f"INSERT INTO {table_name} ({', '.join(columns)}) VALUES ({placeholders})"
@@ -200,8 +176,6 @@ class ChatService:
 
     def get_all_tables(self):
         try:
-            
-            # Parse connection URL
             parsed = urlparse(self.connection_string)
             db_config = {
                 'host': parsed.hostname,
@@ -212,14 +186,12 @@ class ChatService:
                 'charset': 'utf8mb4'
             }
             
-            # Connect and get tables
             connection = pymysql.connect(**db_config)
             cursor = connection.cursor()
             
             cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = %s", (db_config['database'],))
             tables_result = cursor.fetchall()
             
-            # Extract table names from tuples
             tables = [row[0] for row in tables_result]
             
             cursor.close()
@@ -234,7 +206,6 @@ class ChatService:
         try:
             db = SQLDatabase.from_uri(self.connection_string)
             
-            # Get column names
             columns_query = f"""
                 SELECT column_name 
                 FROM information_schema.columns 
@@ -244,19 +215,24 @@ class ChatService:
             columns_result = db.run(columns_query)
             columns = [row[0] for row in columns_result]
             
-            # Get table data
             data_query = f"SELECT * FROM {table_name}"
             data_result = db.run(data_query)
             
-            # Convert rows to dictionaries
-            data = []
+            table_data = []
             for row in data_result:
-                row_dict = dict(zip(columns, row))
-                data.append(row_dict)
+                row_dict = {}
+                for i, col in enumerate(columns):
+                    if i < len(row):
+                        value = row[i]
+                        row_dict[col] = str(value) if value is not None else None
+                    else:
+                        row_dict[col] = None
+                table_data.append(row_dict)
             
             return {
                 "columns": columns,
-                "data": data
+                "data": table_data
             }
+            
         except Exception as e:
             raise Exception(f"Error getting table insights: {str(e)}")
