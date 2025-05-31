@@ -112,143 +112,111 @@ class ChatService:
             raise Exception(f"Error processing query: {str(e)}")
 
     def process_new_chat(self, df, jd_text, table_name):
-        # Capture standard output for debugging CrewAI response
-        old_stdout = sys.stdout
-        redirected_output = io.StringIO()
-        sys.stdout = redirected_output
-
         try:
-            analysis_task = Task(
-                description=f"Analyze this job description and determine required columns for the candidates table based on the job description provided. Return ONLY a JSON array of strings with the column names, for example: [\"column1\", \"column2\"].\nJob Description:\n{jd_text}",
-                agent=self.data_processor,
-                expected_output="A JSON array of column names required for the candidates table, and ONLY the JSON array."
+            # Step 1: Extract columns directly using LiteLLM (bypass CrewAI complexity)
+            print("Step 1: Analyzing job description to determine required columns...")
+            columns_response = litellm.completion(
+                model="gemini/gemini-2.0-flash",
+                messages=[{"role": "user", "content": f"Analyze this job description and determine what columns should be in a candidates database table. Return ONLY a JSON array of column names that would be useful for storing candidate information relevant to this job. Include standard fields like name, email, phone, skills, experience, education, etc. Example format: [\"name\", \"email\", \"phone\", \"skills\", \"experience\", \"education\", \"linkedin\"].\n\nJob Description:\n{jd_text}"}],
+                api_key=os.getenv('GOOGLE_API_KEY')
             )
             
-            processing_task = Task(
-                description="Process the candidate data and create the table structure",
-                agent=self.data_processor,
-                expected_output="A JSON object confirming the table structure and data processing, and ONLY the JSON object."
-            )
+            columns_content = columns_response.choices[0].message.content.strip()
+            print(f"Debug: Raw columns response: {columns_content}")
             
-            crew = Crew(
-                agents=[self.data_processor],
-                tasks=[analysis_task, processing_task],
-                process=Process.sequential,
-                verbose=True
-            )
+            # Clean up markdown formatting if present
+            if columns_content.startswith('```json'):
+                columns_content = columns_content[len('```json'):].lstrip()
+            if columns_content.endswith('```'):
+                columns_content = columns_content[:-len('```')].rstrip()
             
-            result = crew.kickoff()
-
-            # Restore standard output
-            sys.stdout = old_stdout
-            captured_output = redirected_output.getvalue()
-            print(f"Captured CrewAI stdout:\n{captured_output}")
+            try:
+                columns = json.loads(columns_content)
+                if not isinstance(columns, list) or not columns:
+                    raise ValueError("Expected non-empty list")
+            except (json.JSONDecodeError, ValueError) as e:
+                print(f"Failed to parse columns JSON, using default: {e}")
+                # Fallback to default columns
+                columns = ["name", "email", "phone", "skills", "experience", "education", "linkedin"]
             
-            columns = None
-            raw_output = ""
-            task_output_str = ""
+            print(f"Debug: Extracted columns: {columns}")
+            
+            # Add score column if not present
+            if 'score' not in [col.lower() for col in columns]:
+                columns.append("score")
 
-            # Try accessing output from TaskOutput object first
-            if result and result.tasks_output and len(result.tasks_output) > 0:
-                 analysis_task_output = result.tasks_output[0]
-                 raw_output = analysis_task_output.raw
-                 task_output_str = str(analysis_task_output)
-
-                 # Prioritize json_dict if available
-                 if analysis_task_output.json_dict is not None:
-                      columns = analysis_task_output.json_dict
-                      print("Debug: Loaded columns from json_dict.")
-
-                 # If json_dict is empty or None, try parsing the raw output
-                 if columns is None and raw_output:
-                     try:
-                         columns = json.loads(raw_output)
-                         print("Debug: Loaded columns from raw output.")
-                     except json.JSONDecodeError:
-                         print(f"Debug: Raw output is not valid JSON: {raw_output}")
-                         pass # Keep columns as None, proceed to next fallback
-
-                 # If columns is still None, try parsing the string representation of the TaskOutput object
-                 if columns is None and task_output_str:
-                     try:
-                         columns = json.loads(task_output_str)
-                         print("Debug: Loaded columns from TaskOutput string representation.")
-                     except json.JSONDecodeError:
-                         print(f"Debug: TaskOutput string representation is not valid JSON: {task_output_str}")
-                         pass # Keep columns as None, proceed to error below
-
-            # If columns is still None, try parsing the captured standard output as a last resort
-            if columns is None and captured_output:
-                 print("Debug: Attempting to parse captured standard output as JSON.")
-                 # This is a heuristic and might need refinement based on actual stdout content
-                 # We might need to extract the JSON part from the captured output
-                 json_match = re.search(r'(\[.*?\]|\{.*?\})', captured_output)
-                 if json_match:
-                     json_string = json_match.group(0)
-                     try:
-                         columns = json.loads(json_string)
-                         print("Debug: Loaded columns from captured standard output.")
-                     except json.JSONDecodeError:
-                         print(f"Debug: Captured standard output is not valid JSON: {json_string}")
-                         pass
-                 else:
-                      print("Debug: No potential JSON found in captured standard output.")
-
-            # If columns is still None or not a list, raise an error
-            if not isinstance(columns, list) or not columns:
-                 raise Exception(f"Could not extract columns from analysis task output. Expected a non-empty JSON list. Raw output: {raw_output}. TaskOutput string: {task_output_str}. Captured stdout: {captured_output}")
-
-            # Create table using direct database connection
+            # Step 2: Create table
+            print(f"Step 2: Creating table {table_name} with columns: {columns}")
             connection = self._get_db_connection()
             
             try:
                 cursor = connection.cursor()
                 
-                # Ensure the score column is not added if it already exists in the list from the LLM
-                if 'score' not in [col.lower() for col in columns]:
-                     columns.append("score")
-
-                # Construct CREATE TABLE SQL using backticks
-                create_table_columns = ', '.join([f'`{col}` VARCHAR(255)' for col in columns])
+                # Drop table if exists to ensure clean slate
+                cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
+                
+                # Create table with proper columns
+                create_table_columns = ', '.join([f'`{col}` TEXT' for col in columns])
                 create_table_sql = f"""
-                    CREATE TABLE IF NOT EXISTS {table_name} (
+                    CREATE TABLE {table_name} (
                         id INT AUTO_INCREMENT PRIMARY KEY,
                         {create_table_columns},
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """
+                print(f"Debug: CREATE TABLE SQL: {create_table_sql}")
                 cursor.execute(create_table_sql)
                 connection.commit()
+                print(f"Table {table_name} created successfully")
                 
-                # Process each candidate
-                for _, row in df.iterrows():
-                    resume_text = self._download_and_extract_resume(row['pdf_url'])
-                    
-                    candidate_info = self._extract_candidate_info(resume_text)
-                    
-                    score = self._calculate_score(candidate_info, jd_text)
-                    # Ensure score is a string before adding to candidate_info for consistency with VARCHAR(255)
-                    candidate_info['score'] = str(score)
-                    
-                    # Use parameterized query for security
-                    insert_columns = ', '.join([f'`{col}`' for col in columns])
-                    placeholders = ', '.join(['%s'] * len(columns))
-                    insert_sql = f"INSERT INTO {table_name} ({insert_columns}) VALUES ({placeholders})"
-                    
-                    # Prepare values in the same order as columns
-                    values = []
-                    for col in columns:
-                        value = candidate_info.get(col, '')
-                        if value is None:
-                            values.append('')
-                        else:
-                            values.append(str(value))
-                    
-                    print(f"Debug: INSERT SQL: {insert_sql}")
-                    print(f"Debug: Values: {values}")
-                    
-                    cursor.execute(insert_sql, values)
-                    connection.commit()
+                # Step 3: Process each candidate
+                print("Step 3: Processing candidates...")
+                processed_count = 0
+                
+                for index, row in df.iterrows():
+                    try:
+                        print(f"Processing candidate {index + 1}/{len(df)}")
+                        
+                        # Download and extract resume text
+                        resume_text = self._download_and_extract_resume(row['pdf_url'])
+                        print(f"Resume text extracted, length: {len(resume_text)} characters")
+                        
+                        # Extract candidate information based on JD requirements
+                        print("Extracting candidate information...")
+                        candidate_info = self._extract_candidate_info_for_jd(resume_text, jd_text, columns)
+                        print(f"Candidate info extracted: {list(candidate_info.keys())}")
+                        
+                        # Calculate match score
+                        print("Calculating match score...")
+                        score = self._calculate_score(candidate_info, jd_text)
+                        candidate_info['score'] = str(score)
+                        print(f"Match score: {score}")
+                        
+                        # Insert into database
+                        insert_columns = ', '.join([f'`{col}`' for col in columns])
+                        placeholders = ', '.join(['%s'] * len(columns))
+                        insert_sql = f"INSERT INTO {table_name} ({insert_columns}) VALUES ({placeholders})"
+                        
+                        # Prepare values in the same order as columns
+                        values = []
+                        for col in columns:
+                            value = candidate_info.get(col, '')
+                            if value is None:
+                                values.append('')
+                            else:
+                                values.append(str(value))
+                        
+                        print(f"Debug: Inserting candidate data...")
+                        cursor.execute(insert_sql, values)
+                        connection.commit()
+                        processed_count += 1
+                        print(f"Candidate {index + 1} processed successfully")
+                        
+                    except Exception as candidate_error:
+                        print(f"Error processing candidate {index + 1}: {candidate_error}")
+                        continue  # Skip this candidate but continue with others
+
+                print(f"Processing completed. {processed_count} candidates processed successfully.")
 
             except Exception as e:
                 connection.rollback()
@@ -257,11 +225,9 @@ class ChatService:
                 cursor.close()
                 connection.close()
             
-            return {"message": "Processing completed successfully"}
+            return {"message": f"Processing completed successfully. {processed_count} candidates processed."}
             
         except Exception as e:
-            # Ensure standard output is restored even if an error occurs
-            sys.stdout = old_stdout
             raise Exception(f"Error processing new chat: {str(e)}")
 
     def _is_google_drive_url(self, url):
@@ -338,6 +304,68 @@ class ChatService:
              raise Exception(f"Error decoding JSON from LLM output for candidate info. Raw output: {llm_output_content}. Error: {e}")
         except Exception as e:
             raise Exception(f"Error extracting candidate info: {str(e)}")
+
+    def _extract_candidate_info_for_jd(self, resume_text, jd_text, required_columns):
+        """Extract candidate information specifically tailored to job description requirements"""
+        try:
+            columns_str = ', '.join(required_columns[:-1])  # Exclude 'score' column
+            
+            prompt = f"""
+            Extract candidate information from this resume based on the job description requirements.
+            
+            Job Description:
+            {jd_text}
+            
+            Resume Text:
+            {resume_text}
+            
+            Extract information for these specific fields: {columns_str}
+            
+            Return ONLY a JSON object with the extracted information. Map the resume content to the required fields.
+            For skills, include relevant technical skills, programming languages, frameworks, tools mentioned.
+            For experience, summarize relevant work history and projects.
+            For education, include degrees, certifications, relevant coursework.
+            
+            Example format: {{"name": "John Doe", "email": "john@email.com", "skills": "Python, Machine Learning, AWS", "experience": "5 years in AI development"}}
+            
+            Return ONLY the JSON object, no other text.
+            """
+            
+            response = litellm.completion(
+                model="gemini/gemini-2.0-flash",
+                messages=[{"role": "user", "content": prompt}],
+                api_key=os.getenv('GOOGLE_API_KEY')
+            )
+            
+            llm_output_content = response.choices[0].message.content.strip()
+            print(f"Debug: Raw LLM output for JD-specific candidate info: {llm_output_content[:200]}...")
+
+            # Remove markdown code block formatting if present
+            if llm_output_content.startswith('```json'):
+                llm_output_content = llm_output_content[len('```json'):].lstrip()
+            if llm_output_content.endswith('```'):
+                llm_output_content = llm_output_content[:-len('```')].rstrip()
+
+            candidate_info = json.loads(llm_output_content)
+            
+            # Ensure all required columns are present (except score)
+            for col in required_columns:
+                if col != 'score' and col not in candidate_info:
+                    candidate_info[col] = ''
+            
+            return candidate_info
+            
+        except json.JSONDecodeError as e:
+            print(f"JSON decode error: {e}")
+            print(f"Raw output: {llm_output_content}")
+            # Return default structure if JSON parsing fails
+            default_info = {}
+            for col in required_columns:
+                if col != 'score':
+                    default_info[col] = ''
+            return default_info
+        except Exception as e:
+            raise Exception(f"Error extracting JD-specific candidate info: {str(e)}")
 
     def _calculate_score(self, candidate_info, jd_text):
         try:
