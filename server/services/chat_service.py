@@ -198,17 +198,38 @@ class ChatService:
         )
 
     def get_all_tables(self):
-        db = SQLDatabase.from_uri(self.connection_string)
-        result = db.run("SHOW TABLES")
-        # Extract table names from the result tuples
-        return [row[0] for row in result if isinstance(row[0], str)]
+        try:
+            db = SQLDatabase.from_uri(self.connection_string)
+            result = db.run("SHOW TABLES")
+            # Convert result to a list of table names
+            tables = []
+            for row in result:
+                if isinstance(row[0], str):
+                    tables.append(row[0])
+            return tables
+        except Exception as e:
+            raise Exception(f"Error getting tables: {str(e)}")
 
     def get_table_insights(self, table_name):
-        db = SQLDatabase.from_uri(self.connection_string)
-        columns = db.run(f"SHOW COLUMNS FROM {table_name}")
-        data = db.run(f"SELECT * FROM {table_name}")
-        
-        return {
-            "columns": [col[0] for col in columns],
-            "data": [dict(zip([col[0] for col in columns], row)) for row in data]
-        }
+        try:
+            db = SQLDatabase.from_uri(self.connection_string)
+            
+            # Get column information
+            columns_result = db.run(f"SHOW COLUMNS FROM {table_name}")
+            columns = [col[0] for col in columns_result if isinstance(col[0], str)]
+            
+            # Get table data
+            data_result = db.run(f"SELECT * FROM {table_name}")
+            data = []
+            for row in data_result:
+                row_dict = {}
+                for i, col in enumerate(columns):
+                    row_dict[col] = row[i]
+                data.append(row_dict)
+            
+            return {
+                "columns": columns,
+                "data": data
+            }
+        except Exception as e:
+            raise Exception(f"Error getting table insights: {str(e)}")
