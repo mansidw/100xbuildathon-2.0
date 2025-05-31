@@ -73,8 +73,8 @@ def new_chat():
 @chat_bp.route('/gettables', methods=['GET'])
 def get_tables():
     try:
-        result = chat_service.get_all_tables()
-        return jsonify({"tables": result})
+        tables = chat_service.get_all_tables()
+        return jsonify({"tables": tables})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

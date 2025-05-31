@@ -200,7 +200,8 @@ class ChatService:
     def get_all_tables(self):
         db = SQLDatabase.from_uri(self.connection_string)
         result = db.run("SHOW TABLES")
-        return [row[0] for row in result]
+        # Extract table names from the result tuples
+        return [row[0] for row in result if isinstance(row[0], str)]
 
     def get_table_insights(self, table_name):
         db = SQLDatabase.from_uri(self.connection_string)
