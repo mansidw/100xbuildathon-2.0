@@ -1,4 +1,5 @@
 import InsightsDashboard from "@/components/InsightsDashboard/InsightsDashboard";
+import posthog from "posthog-js";
 
 const mockChartData = [
   {
@@ -50,6 +51,14 @@ const mockChartData = [
 ];
 
 const Dashboard = () => {
+
+  posthog.capture("dashboard_viewed", {
+    timestamp: new Date().toISOString(),
+    properties: {
+      page: "Dashboard",
+    },
+  });
+  
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
