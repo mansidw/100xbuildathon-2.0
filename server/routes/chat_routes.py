@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from services.chat_service import ChatService
+from services.insights_service import InsightsService
 import os
 import pandas as pd
 from werkzeug.utils import secure_filename
@@ -10,6 +11,7 @@ import sqlite3
 
 chat_bp = Blueprint('chat', __name__)
 chat_service = ChatService()
+insights_service = InsightsService()
 
 @chat_bp.route('/chat', methods=['POST'])
 def chat():
@@ -83,7 +85,12 @@ def get_insights():
         if not table_name:
             return jsonify({"error": "Missing tableName"}), 400
             
-        result = chat_service.get_table_insights(table_name)
-        return jsonify({"insights": result})
+        # Get table data
+        table_data = chat_service.get_table_insights(table_name)
+        
+        # Generate insights using CrewAI
+        insights = insights_service.generate_insights(table_name, table_data)
+        
+        return jsonify(insights)
     except Exception as e:
         return jsonify({"error": str(e)}), 500 

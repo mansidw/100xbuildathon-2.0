@@ -1,7 +1,6 @@
-from langchain_community.agent_toolkits.sql.base import create_sql_agent
-from langchain_community.agent_toolkits import SQLDatabaseToolkit
-from langchain_community.utilities import SQLDatabase
+from crewai import Agent, Task, Crew
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.utilities import SQLDatabase
 from dotenv import load_dotenv
 import os
 import sqlite3
@@ -16,10 +15,29 @@ load_dotenv()
 
 class ChatService:
     def __init__(self):
+        # Initialize the LLM with Gemini
         self.llm = ChatGoogleGenerativeAI(
             model="gemini-2.0-flash",
             google_api_key=os.getenv('GOOGLE_API_KEY')
         )
+        
+        # Create agents
+        self.sql_expert = Agent(
+            role='SQL Expert',
+            goal='Write and execute SQL queries accurately',
+            backstory='Expert in SQL and database management',
+            llm=self.llm,
+            verbose=True
+        )
+        
+        self.data_processor = Agent(
+            role='Data Processor',
+            goal='Process and analyze data from various sources',
+            backstory='Expert in data processing and analysis',
+            llm=self.llm,
+            verbose=True
+        )
+        
         self.db_path = "candidates.db"
         self._init_db()
 
@@ -33,38 +51,54 @@ class ChatService:
 
     def process_query(self, table_name, query):
         try:
+            # Create database connection
             connection_string = os.getenv('CONNECTION_URL')
-            
             db = SQLDatabase.from_uri(
                 connection_string,
                 include_tables=[table_name]
             )
             
-            toolkit = SQLDatabaseToolkit(db=db, llm=self.llm)
-            agent = create_sql_agent(
-                llm=self.llm,
-                toolkit=toolkit,
-                verbose=True,
-                agent_kwargs={
-                    "prefix": f"You are a SQL expert. You can only query the table '{table_name}'. "
-                              "Do not attempt to query any other tables. If the query requires joining "
-                              "with other tables, inform the user that you can only work with the specified table."
-                }
+            # Create tasks for the crew
+            sql_task = Task(
+                description=f"Write and execute a SQL query for the following request: {query}\nOnly query the table '{table_name}'.",
+                agent=self.sql_expert
             )
             
-            return agent.run(query)
+            # Create and run the crew
+            crew = Crew(
+                agents=[self.sql_expert],
+                tasks=[sql_task],
+                verbose=True
+            )
+            
+            result = crew.kickoff()
+            return result
+            
         except Exception as e:
             raise Exception(f"Error processing query: {str(e)}")
 
     def process_new_chat(self, df, jd_text, table_name):
         try:
-            # Analyze JD to determine required columns
-            columns_prompt = f"""Based on this job description, what columns should be in the candidates table?
-            Job Description: {jd_text}
-            Return only a JSON array of column names."""
+            # Create tasks for the crew
+            analysis_task = Task(
+                description=f"Analyze this job description and determine required columns for the candidates table:\n{jd_text}",
+                agent=self.data_processor
+            )
             
-            columns_response = self.llm.invoke(columns_prompt)
-            columns = json.loads(columns_response.content)
+            processing_task = Task(
+                description="Process the candidate data and create the table structure",
+                agent=self.data_processor
+            )
+            
+            # Create and run the crew
+            crew = Crew(
+                agents=[self.data_processor],
+                tasks=[analysis_task, processing_task],
+                verbose=True
+            )
+            
+            result = crew.kickoff()
+            columns = json.loads(result)
             
             # Create table
             conn = sqlite3.connect(self.db_path)
