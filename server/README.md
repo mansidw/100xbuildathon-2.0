@@ -60,8 +60,8 @@ The server follows a layered architecture:
 - **Temporary Files**: A `/server/temp` directory is used to temporarily store downloaded PDF resumes during the `/newChat` process.
 
 ```mermaid
-graph TD
-    User[User] -->|HTTP Requests| FlaskApp[Flask Server]
+flowchart TD
+    User((User)) -->|HTTP Requests| FlaskApp[Flask Server]
     FlaskApp --> ChatRoutes[API Routes]
     
     ChatRoutes -->|Call Services| ChatService[ChatService]
