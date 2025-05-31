@@ -1,6 +1,6 @@
 import os
 import json
-import pymysql
+import psycopg2
 from dotenv import load_dotenv
 from urllib.parse import urlparse
 
@@ -17,19 +17,17 @@ class InsightsService:
             parsed = urlparse(self.connection_url)
             self.db_config = {
                 'host': parsed.hostname,
-                'port': parsed.port or 3306,
+                'port': parsed.port or 5432,
                 'user': parsed.username,
                 'password': parsed.password,
-                'database': parsed.path.lstrip('/'),
-                'charset': 'utf8mb4',
-                'autocommit': True
+                'database': parsed.path.lstrip('/')
             }
         except Exception as e:
             raise Exception(f"Error parsing connection URL: {str(e)}")
 
     def _get_connection(self):
-        if not self.connection or not self.connection.open:
-            self.connection = pymysql.connect(**self.db_config)
+        if not self.connection or self.connection.closed:
+            self.connection = psycopg2.connect(**self.db_config)
         return self.connection
 
     def generate_insights(self, table_name, data=None):
@@ -40,11 +38,11 @@ class InsightsService:
             columns_query = """
                 SELECT column_name 
                 FROM information_schema.columns 
-                WHERE table_schema = %s 
+                WHERE table_schema = 'public' 
                 AND table_name = %s
                 ORDER BY ordinal_position
             """
-            cursor.execute(columns_query, (self.db_config['database'], table_name))
+            cursor.execute(columns_query, (table_name,))
             columns_result = cursor.fetchall()
             
             if not columns_result:
@@ -52,7 +50,7 @@ class InsightsService:
             
             columns = [row[0] for row in columns_result]
             
-            data_query = f"SELECT * FROM `{table_name}`"
+            data_query = f'SELECT * FROM "{table_name}"'
             cursor.execute(data_query)
             data_rows = cursor.fetchall()
             
@@ -83,11 +81,23 @@ class InsightsService:
             conn = self._get_connection()
             cursor = conn.cursor()
 
-            describe_query = f"DESCRIBE `{table_name}`"
-            cursor.execute(describe_query)
+            # PostgreSQL equivalent of DESCRIBE
+            structure_query = """
+                SELECT 
+                    column_name as field,
+                    data_type as type,
+                    is_nullable as null,
+                    column_default as default,
+                    character_maximum_length as length
+                FROM information_schema.columns 
+                WHERE table_schema = 'public' 
+                AND table_name = %s
+                ORDER BY ordinal_position
+            """
+            cursor.execute(structure_query, (table_name,))
             structure = cursor.fetchall()
             
-            count_query = f"SELECT COUNT(*) FROM `{table_name}`"
+            count_query = f'SELECT COUNT(*) FROM "{table_name}"'
             cursor.execute(count_query)
             row_count = cursor.fetchone()[0]
             
@@ -100,9 +110,8 @@ class InsightsService:
                         "field": row[0],
                         "type": row[1],
                         "null": row[2],
-                        "key": row[3],
-                        "default": row[4],
-                        "extra": row[5]
+                        "default": row[3],
+                        "length": row[4]
                     } for row in structure
                 ],
                 "row_count": row_count
@@ -148,13 +157,13 @@ class InsightsService:
 
     def get_sample_data(self, table_name, limit=10):
         try:
-            query = f"SELECT * FROM `{table_name}` LIMIT %s"
+            query = f'SELECT * FROM "{table_name}" LIMIT %s'
             return self.run_query(query, (limit,))
         except Exception as e:
             raise Exception(f"Error getting sample data: {str(e)}")
 
     def close_connection(self):
-        if self.connection and self.connection.open:
+        if self.connection and not self.connection.closed:
             self.connection.close()
 
     def __del__(self):

@@ -2,15 +2,15 @@ from crewai import Agent, Task, Crew, Process
 from langchain_community.utilities import SQLDatabase
 from langchain_community.agent_toolkits.sql.base import create_sql_agent
 from langchain_community.agent_toolkits import SQLDatabaseToolkit
+from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
 import os
-import MySQLdb
+import psycopg2
 import pandas as pd
 import requests
 from PyPDF2 import PdfReader
 import tempfile
 import json
-import pymysql
 from urllib.parse import urlparse, parse_qs
 import re
 import gdown
@@ -49,10 +49,10 @@ class LiteLLMAgent(Agent):
 
 class ChatService:
     def __init__(self):
-        self.data_processor = LiteLLMAgent(
-            role='Data Processor',
-            goal='Process and analyze data from various sources',
-            backstory='Expert in data processing and analysis'
+        self.data_processor = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",
+            google_api_key=os.getenv('GOOGLE_API_KEY'),
+            temperature=0
         )
         
         self.connection_string = os.getenv('CONNECTION_URL')
@@ -63,7 +63,7 @@ class ChatService:
             db = SQLDatabase.from_uri(self.connection_string)
             db.run("""
                 CREATE TABLE IF NOT EXISTS rejected_candidates (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    id SERIAL PRIMARY KEY,
                     name VARCHAR(255),
                     reason TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -73,18 +73,16 @@ class ChatService:
             raise Exception(f"Error initializing database: {str(e)}")
 
     def _get_db_connection(self):
-        
         try:
             parsed = urlparse(self.connection_string)
             db_config = {
                 'host': parsed.hostname,
-                'port': parsed.port or 3306,
+                'port': parsed.port or 5432,
                 'user': parsed.username,
                 'password': parsed.password,
                 'database': parsed.path.lstrip('/'),
-                'charset': 'utf8mb4'
             }
-            return pymysql.connect(**db_config)
+            return psycopg2.connect(**db_config)
         except Exception as e:
             raise Exception(f"Error creating database connection: {str(e)}")
 
@@ -156,10 +154,10 @@ class ChatService:
                 cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
                 
                 
-                create_table_columns = ', '.join([f'`{col}` TEXT' for col in columns])
+                create_table_columns = ', '.join([f'"{col}" TEXT' for col in columns])
                 create_table_sql = f"""
                     CREATE TABLE {table_name} (
-                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        id SERIAL PRIMARY KEY,
                         {create_table_columns},
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
@@ -193,7 +191,7 @@ class ChatService:
                         print(f"Match score: {score}")
                         
                         
-                        insert_columns = ', '.join([f'`{col}`' for col in columns])
+                        insert_columns = ', '.join([f'"{col}"' for col in columns])
                         placeholders = ', '.join(['%s'] * len(columns))
                         insert_sql = f"INSERT INTO {table_name} ({insert_columns}) VALUES ({placeholders})"
                         
@@ -399,7 +397,11 @@ class ChatService:
             connection = self._get_db_connection()
             cursor = connection.cursor()
             
-            cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()")
+            cursor.execute("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public'
+            """)
             tables_result = cursor.fetchall()
             
             tables = [row[0] for row in tables_result]
@@ -417,18 +419,16 @@ class ChatService:
             connection = self._get_db_connection()
             cursor = connection.cursor()
             
-            
-            cursor.execute(f"""
+            cursor.execute("""
                 SELECT column_name 
                 FROM information_schema.columns 
-                WHERE table_schema = DATABASE() 
+                WHERE table_schema = 'public' 
                 AND table_name = %s
             """, (table_name,))
             columns_result = cursor.fetchall()
             columns = [row[0] for row in columns_result]
             
-            
-            cursor.execute(f"SELECT * FROM `{table_name}`")
+            cursor.execute(f'SELECT * FROM "{table_name}"')
             data_result = cursor.fetchall()
             
             table_data = []
