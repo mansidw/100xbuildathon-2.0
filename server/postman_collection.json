@@ -1,0 +1,120 @@
+{
+	"info": {
+		"_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+		"name": "Hiring Copilot API",
+		"description": "API collection for the AI-powered hiring copilot",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Chat",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"tableName\": \"candidates\",\n    \"query\": \"Find all candidates with a score above 80\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/chat",
+					"host": ["{{base_url}}"],
+					"path": ["chat"]
+				},
+				"description": "Process a natural language query on a specific table"
+			}
+		},
+		{
+			"name": "New Chat",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "csv",
+							"type": "file",
+							"src": "/path/to/candidates.csv"
+						},
+						{
+							"key": "pdf",
+							"type": "file",
+							"src": "/path/to/job_description.pdf"
+						},
+						{
+							"key": "tableName",
+							"value": "candidates",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/newChat",
+					"host": ["{{base_url}}"],
+					"path": ["newChat"]
+				},
+				"description": "Process new candidates with job description"
+			}
+		},
+		{
+			"name": "Get Tables",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/gettables",
+					"host": ["{{base_url}}"],
+					"path": ["gettables"]
+				},
+				"description": "Get list of all available tables"
+			}
+		},
+		{
+			"name": "Get Insights",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/getinsights?tableName=candidates",
+					"host": ["{{base_url}}"],
+					"path": ["getinsights"],
+					"query": [
+						{
+							"key": "tableName",
+							"value": "candidates"
+						}
+					]
+				},
+				"description": "Get AI-generated insights for a specific table"
+			}
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [""]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [""]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:5000",
+			"type": "string"
+		}
+	]
+} 
