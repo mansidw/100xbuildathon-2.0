@@ -3,7 +3,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.utilities import SQLDatabase
 from dotenv import load_dotenv
 import os
-import mysql.connector
+import MySQLdb
 import pandas as pd
 import requests
 from PyPDF2 import PdfReader
