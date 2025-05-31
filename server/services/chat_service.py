@@ -200,15 +200,8 @@ class ChatService:
     def get_all_tables(self):
         try:
             db = SQLDatabase.from_uri(self.connection_string)
-            result = db.run("SHOW TABLES")
-            # Convert result to a list of table names
-            tables = []
-            for row in result:
-                if row and len(row) > 0:
-                    table_name = row[0]
-                    if isinstance(table_name, str):
-                        tables.append(table_name)
-            return tables
+            result = db.run("SELECT table_name FROM information_schema.tables WHERE table_schema = 'classicmodels'")
+            return [row[0] for row in result]
         except Exception as e:
             raise Exception(f"Error getting tables: {str(e)}")
 
@@ -216,24 +209,25 @@ class ChatService:
         try:
             db = SQLDatabase.from_uri(self.connection_string)
             
-            # Get column information
-            columns_result = db.run(f"SHOW COLUMNS FROM {table_name}")
-            columns = []
-            for col in columns_result:
-                if col and len(col) > 0:
-                    column_name = col[0]
-                    if isinstance(column_name, str):
-                        columns.append(column_name)
+            # Get column names
+            columns_query = f"""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_schema = 'classicmodels' 
+                AND table_name = '{table_name}'
+            """
+            columns_result = db.run(columns_query)
+            columns = [row[0] for row in columns_result]
             
             # Get table data
-            data_result = db.run(f"SELECT * FROM {table_name}")
+            data_query = f"SELECT * FROM {table_name}"
+            data_result = db.run(data_query)
+            
+            # Convert rows to dictionaries
             data = []
             for row in data_result:
-                if row and len(row) == len(columns):
-                    row_dict = {}
-                    for i, col in enumerate(columns):
-                        row_dict[col] = row[i]
-                    data.append(row_dict)
+                row_dict = dict(zip(columns, row))
+                data.append(row_dict)
             
             return {
                 "columns": columns,
