@@ -94,16 +94,18 @@ class ChatService:
             )
             
             toolkit = SQLDatabaseToolkit(db=db, llm=self.data_processor)
-            tools = toolkit.get_tools()
+            agent_executor = create_sql_agent(
+                llm=self.data_processor,
+                toolkit=toolkit,
+                verbose=True,
+                agent_type="zero-shot-react-description"
+            )
             
             prompt = f"""You are a SQL expert. You can only query the table '{table_name}'. 
             Do not attempt to query any other tables. If the query requires joining with other tables, 
             inform the user that you can only work with the specified table.
             
             User Query: {query}
-            
-            Use the following tools to help answer the query:
-            {[tool.name for tool in tools]}
             
             Think through the steps to answer the query:
             1. What information do we need?
@@ -113,10 +115,11 @@ class ChatService:
             
             Let's solve this step by step:"""
             
-            response = self.data_processor.invoke(prompt)
-            return response.content
+            response = agent_executor.invoke({"input": prompt})
+            return response["output"]
             
         except Exception as e:
+            print(f"Error in process_query: {str(e)}")
             raise Exception(f"Error processing query: {str(e)}")
 
     def process_new_chat(self, df, jd_text, table_name):

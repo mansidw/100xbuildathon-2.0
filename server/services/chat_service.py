@@ -61,7 +61,9 @@ class ChatService:
     def _init_db(self):
         try:
             db = SQLDatabase.from_uri(self.connection_string)
-            db.run("""
+            print(db)
+            # Use invoke instead of run (deprecated method)
+            db.run_no_throw("""
                 CREATE TABLE IF NOT EXISTS rejected_candidates (
                     id SERIAL PRIMARY KEY,
                     name VARCHAR(255),
@@ -88,26 +90,173 @@ class ChatService:
 
     def process_query(self, table_name, query):
         try:
+            # Create SQL agent with proper configuration
             db = SQLDatabase.from_uri(
                 self.connection_string,
                 include_tables=[table_name]
             )
             
+            # Create SQL toolkit and agent
             toolkit = SQLDatabaseToolkit(db=db, llm=self.data_processor)
             agent = create_sql_agent(
                 llm=self.data_processor,
                 toolkit=toolkit,
                 verbose=True,
-                agent_kwargs={
-                    "prefix": f"You are a SQL expert. You can only query the table '{table_name}'. "
-                              "Do not attempt to query any other tables. If the query requires joining "
-                              "with other tables, inform the user that you can only work with the specified table."
-                }
+                agent_type="openai-tools",
+                handle_parsing_errors=True
             )
             
-            return agent.run(query)
+            # First, get the table schema to provide context
+            connection = self._get_db_connection()
+            cursor = connection.cursor()
+            
+            try:
+                cursor.execute(f"""
+                    SELECT column_name, data_type 
+                    FROM information_schema.columns 
+                    WHERE table_name = '{table_name}' 
+                    AND table_schema = 'public'
+                    ORDER BY ordinal_position
+                """)
+                schema = cursor.fetchall()
+                
+                if not schema:
+                    return f"Table '{table_name}' not found or has no accessible columns."
+                
+                # Get sample data to understand the table better
+                cursor.execute(f'SELECT * FROM "{table_name}" LIMIT 3')
+                sample_data = cursor.fetchall()
+                
+                # Build enhanced prompt with context
+                schema_info = "\n".join([f"- {col[0]} ({col[1]})" for col in schema])
+                
+                enhanced_query = f"""
+                Table '{table_name}' has the following schema:
+                {schema_info}
+                
+                User question: {query}
+                
+                Please write and execute a SQL query to answer this question about the {table_name} table.
+                Make sure to:
+                1. Use proper column names from the schema above
+                2. Handle any potential data type conversions if needed
+                3. Provide a clear explanation of your results
+                """
+                
+                # Use invoke instead of run
+                result = agent.invoke({"input": enhanced_query})
+                
+                # Extract the output from the result
+                if isinstance(result, dict):
+                    return result.get('output', str(result))
+                else:
+                    return str(result)
+                    
+            finally:
+                cursor.close()
+                connection.close()
+            
         except Exception as e:
-            raise Exception(f"Error processing query: {str(e)}")
+            print(f"Error in process_query: {str(e)}")
+            # Fallback to direct SQL execution if agent fails
+            try:
+                return self._execute_direct_query(table_name, query)
+            except Exception as fallback_error:
+                return f"Error processing query: {str(e)}\nFallback error: {str(fallback_error)}"
+
+    def _execute_direct_query(self, table_name, query):
+        """Fallback method to execute queries directly"""
+        try:
+            connection = self._get_db_connection()
+            cursor = connection.cursor()
+            
+            # Get table schema
+            cursor.execute(f"""
+                SELECT column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_name = '{table_name}' 
+                AND table_schema = 'public'
+                ORDER BY ordinal_position
+            """)
+            schema = cursor.fetchall()
+            
+            if not schema:
+                return f"Table '{table_name}' not found."
+            
+            schema_info = "\n".join([f"- {col[0]} ({col[1]})" for col in schema])
+            
+            # Use LLM to generate SQL query
+            prompt = f"""
+            You are a SQL expert. Generate a SQL query for the following request.
+            
+            Table: {table_name}
+            Schema:
+            {schema_info}
+            
+            User Query: {query}
+            
+            Return ONLY the SQL query, no explanations or formatting.
+            """
+            
+            response = litellm.completion(
+                model="gemini/gemini-2.0-flash",
+                messages=[{"role": "user", "content": prompt}],
+                api_key=os.getenv('GOOGLE_API_KEY')
+            )
+            
+            sql_query = response.choices[0].message.content.strip()
+            
+            # Clean up the SQL query
+            sql_query = sql_query.replace('```sql', '').replace('```', '').strip()
+            
+            # Execute the query
+            cursor.execute(sql_query)
+            results = cursor.fetchall()
+            
+            # Get column names for results
+            column_names = [desc[0] for desc in cursor.description]
+            
+            # Format results
+            if not results:
+                return "No results found for your query."
+            
+            # Create a formatted response
+            formatted_results = []
+            for row in results:
+                row_dict = dict(zip(column_names, row))
+                formatted_results.append(row_dict)
+            
+            # Generate explanation using LLM
+            explanation_prompt = f"""
+            Explain these SQL query results in a user-friendly way:
+            
+            Query: {query}
+            SQL executed: {sql_query}
+            Results: {formatted_results[:5]}  # Show first 5 results
+            Total rows: {len(results)}
+            
+            Provide a clear, concise explanation of what the results show.
+            """
+            
+            explanation_response = litellm.completion(
+                model="gemini/gemini-2.0-flash",
+                messages=[{"role": "user", "content": explanation_prompt}],
+                api_key=os.getenv('GOOGLE_API_KEY')
+            )
+            
+            explanation = explanation_response.choices[0].message.content
+            
+            cursor.close()
+            connection.close()
+            
+            return f"{explanation}\n\nSQL Query executed: {sql_query}\nTotal results: {len(results)}"
+            
+        except Exception as e:
+            if 'cursor' in locals():
+                cursor.close()
+            if 'connection' in locals():
+                connection.close()
+            raise Exception(f"Error in direct query execution: {str(e)}")
 
     def process_new_chat(self, df, jd_text, table_name):
         try:
@@ -151,17 +300,17 @@ class ChatService:
                 cursor = connection.cursor()
                 
                 
-                cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
+                cursor.execute(f'DROP TABLE IF EXISTS "{table_name}"')
                 
                 
                 create_table_columns = ', '.join([f'"{col}" TEXT' for col in columns])
-                create_table_sql = f"""
-                    CREATE TABLE {table_name} (
+                create_table_sql = f'''
+                    CREATE TABLE "{table_name}" (
                         id SERIAL PRIMARY KEY,
                         {create_table_columns},
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
-                """
+                '''
                 print(f"Debug: CREATE TABLE SQL: {create_table_sql}")
                 cursor.execute(create_table_sql)
                 connection.commit()
@@ -193,7 +342,7 @@ class ChatService:
                         
                         insert_columns = ', '.join([f'"{col}"' for col in columns])
                         placeholders = ', '.join(['%s'] * len(columns))
-                        insert_sql = f"INSERT INTO {table_name} ({insert_columns}) VALUES ({placeholders})"
+                        insert_sql = f'INSERT INTO "{table_name}" ({insert_columns}) VALUES ({placeholders})'
                         
                         
                         values = []
@@ -401,6 +550,7 @@ class ChatService:
                 SELECT table_name 
                 FROM information_schema.tables 
                 WHERE table_schema = 'public'
+                AND table_type = 'BASE TABLE'
             """)
             tables_result = cursor.fetchall()
             
@@ -424,6 +574,7 @@ class ChatService:
                 FROM information_schema.columns 
                 WHERE table_schema = 'public' 
                 AND table_name = %s
+                ORDER BY ordinal_position
             """, (table_name,))
             columns_result = cursor.fetchall()
             columns = [row[0] for row in columns_result]
