@@ -41,7 +41,6 @@ def new_chat():
         if not table_name:
             return jsonify({"error": "Missing tableName"}), 400
             
-        # Save files temporarily
         temp_dir = tempfile.mkdtemp()
         csv_path = os.path.join(temp_dir, secure_filename(csv_file.filename))
         pdf_path = os.path.join(temp_dir, secure_filename(pdf_file.filename))
@@ -49,19 +48,15 @@ def new_chat():
         csv_file.save(csv_path)
         pdf_file.save(pdf_path)
         
-        # Read CSV
         df = pd.read_csv(csv_path)
         
-        # Extract text from PDF
         pdf_reader = PdfReader(pdf_path)
         jd_text = ""
         for page in pdf_reader.pages:
             jd_text += page.extract_text()
             
-        # Process with AI agents
         result = chat_service.process_new_chat(df, jd_text, table_name)
         
-        # Cleanup
         os.remove(csv_path)
         os.remove(pdf_path)
         os.rmdir(temp_dir)
@@ -85,10 +80,7 @@ def get_insights():
         if not table_name:
             return jsonify({"error": "Missing tableName"}), 400
             
-        # Get table data
         table_data = chat_service.get_table_insights(table_name)
-        
-        # Generate insights using CrewAI
         insights = insights_service.generate_insights(table_name, table_data)
         
         return jsonify(insights)

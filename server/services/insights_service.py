@@ -8,13 +8,11 @@ load_dotenv()
 
 class InsightsService:
     def __init__(self):
-        # Parse connection URL
         self.connection_url = os.getenv('CONNECTION_URL')
         self.connection = None
         self._parse_connection_url()
 
     def _parse_connection_url(self):
-        """Parse MySQL connection URL and extract components"""
         try:
             parsed = urlparse(self.connection_url)
             self.db_config = {
@@ -30,7 +28,6 @@ class InsightsService:
             raise Exception(f"Error parsing connection URL: {str(e)}")
 
     def _get_connection(self):
-        """Get database connection"""
         if not self.connection or not self.connection.open:
             self.connection = pymysql.connect(**self.db_config)
         return self.connection
@@ -40,7 +37,6 @@ class InsightsService:
             conn = self._get_connection()
             cursor = conn.cursor()
 
-            # Get column names
             columns_query = """
                 SELECT column_name 
                 FROM information_schema.columns 
@@ -56,12 +52,10 @@ class InsightsService:
             
             columns = [row[0] for row in columns_result]
             
-            # Get all data from table
             data_query = f"SELECT * FROM `{table_name}`"
             cursor.execute(data_query)
             data_rows = cursor.fetchall()
             
-            # Convert rows to dictionaries
             table_data = []
             for row in data_rows:
                 row_dict = {}
@@ -85,17 +79,14 @@ class InsightsService:
             raise Exception(f"Error getting table data: {str(e)}")
 
     def get_table_info(self, table_name):
-        """Get table structure information"""
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
 
-            # Get table structure
             describe_query = f"DESCRIBE `{table_name}`"
             cursor.execute(describe_query)
             structure = cursor.fetchall()
             
-            # Get row count
             count_query = f"SELECT COUNT(*) FROM `{table_name}`"
             cursor.execute(count_query)
             row_count = cursor.fetchone()[0]
@@ -121,7 +112,6 @@ class InsightsService:
             raise Exception(f"Error getting table info: {str(e)}")
 
     def run_query(self, query, params=None):
-        """Execute a custom query"""
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
@@ -131,7 +121,6 @@ class InsightsService:
             else:
                 cursor.execute(query)
             
-            # Check if it's a SELECT query
             if query.strip().upper().startswith('SELECT'):
                 columns = [desc[0] for desc in cursor.description]
                 rows = cursor.fetchall()
@@ -158,7 +147,6 @@ class InsightsService:
             raise Exception(f"Error executing query: {str(e)}")
 
     def get_sample_data(self, table_name, limit=10):
-        """Get sample data from table"""
         try:
             query = f"SELECT * FROM `{table_name}` LIMIT %s"
             return self.run_query(query, (limit,))
@@ -166,10 +154,8 @@ class InsightsService:
             raise Exception(f"Error getting sample data: {str(e)}")
 
     def close_connection(self):
-        """Close database connection"""
         if self.connection and self.connection.open:
             self.connection.close()
 
     def __del__(self):
-        """Cleanup connection on object destruction"""
         self.close_connection()

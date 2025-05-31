@@ -9,7 +9,8 @@ import requests
 from PyPDF2 import PdfReader
 import tempfile
 import json
-
+import pymysql
+from urllib.parse import urlparse
 
 load_dotenv()
 
@@ -199,9 +200,33 @@ class ChatService:
 
     def get_all_tables(self):
         try:
-            db = SQLDatabase.from_uri(self.connection_string)
-            result = db.run("SELECT table_name FROM information_schema.tables WHERE table_schema = 'classicmodels'")
-            return [row[0] for row in result]
+            
+            # Parse connection URL
+            parsed = urlparse(self.connection_string)
+            db_config = {
+                'host': parsed.hostname,
+                'port': parsed.port or 3306,
+                'user': parsed.username,
+                'password': parsed.password,
+                'database': parsed.path.lstrip('/'),
+                'charset': 'utf8mb4'
+            }
+            
+            # Connect and get tables
+            connection = pymysql.connect(**db_config)
+            cursor = connection.cursor()
+            
+            cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = %s", (db_config['database'],))
+            tables_result = cursor.fetchall()
+            
+            # Extract table names from tuples
+            tables = [row[0] for row in tables_result]
+            
+            cursor.close()
+            connection.close()
+            
+            return tables
+            
         except Exception as e:
             raise Exception(f"Error getting tables: {str(e)}")
 
