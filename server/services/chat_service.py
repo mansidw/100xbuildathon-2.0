@@ -204,8 +204,10 @@ class ChatService:
             # Convert result to a list of table names
             tables = []
             for row in result:
-                if isinstance(row[0], str):
-                    tables.append(row[0])
+                if row and len(row) > 0:
+                    table_name = row[0]
+                    if isinstance(table_name, str):
+                        tables.append(table_name)
             return tables
         except Exception as e:
             raise Exception(f"Error getting tables: {str(e)}")
@@ -216,16 +218,22 @@ class ChatService:
             
             # Get column information
             columns_result = db.run(f"SHOW COLUMNS FROM {table_name}")
-            columns = [col[0] for col in columns_result if isinstance(col[0], str)]
+            columns = []
+            for col in columns_result:
+                if col and len(col) > 0:
+                    column_name = col[0]
+                    if isinstance(column_name, str):
+                        columns.append(column_name)
             
             # Get table data
             data_result = db.run(f"SELECT * FROM {table_name}")
             data = []
             for row in data_result:
-                row_dict = {}
-                for i, col in enumerate(columns):
-                    row_dict[col] = row[i]
-                data.append(row_dict)
+                if row and len(row) == len(columns):
+                    row_dict = {}
+                    for i, col in enumerate(columns):
+                        row_dict[col] = row[i]
+                    data.append(row_dict)
             
             return {
                 "columns": columns,
