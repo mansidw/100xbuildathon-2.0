@@ -275,6 +275,13 @@ class ChatService:
             # Ensure we are only trying to load the content of the message
             llm_output_content = response.choices[0].message.content.strip()
             print(f"Debug: Raw LLM output for candidate info: {llm_output_content}")
+
+            # Remove markdown code block formatting if present
+            if llm_output_content.startswith('```json'):
+                llm_output_content = llm_output_content[len('```json'):].lstrip()
+            if llm_output_content.endswith('```'):
+                llm_output_content = llm_output_content[:-len('```')].rstrip()
+
             return json.loads(llm_output_content)
         except json.JSONDecodeError as e:
              # Include the raw output in the error message for debugging
