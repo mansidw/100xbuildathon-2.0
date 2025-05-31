@@ -1,5 +1,4 @@
-from crewai import Agent, Task, Crew
-from langchain_google_genai import ChatGoogleGenerativeAI
+from crewai import Agent, Task, Crew, Process
 from langchain_community.utilities import SQLDatabase
 from langchain_community.agent_toolkits.sql.base import create_sql_agent
 from langchain_community.agent_toolkits import SQLDatabaseToolkit
@@ -12,23 +11,48 @@ from PyPDF2 import PdfReader
 import tempfile
 import json
 import pymysql
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
+import re
+import gdown
+import litellm
+import io
+import sys
+import uuid
 
 load_dotenv()
 
+TEMP_DIR = os.path.join(os.path.dirname(__file__), '..', 'temp')
+
+if not os.path.exists(TEMP_DIR):
+    os.makedirs(TEMP_DIR)
+
+class LiteLLMAgent(Agent):
+    def __init__(self, role, goal, backstory, **kwargs):
+        super().__init__(role=role, goal=goal, backstory=backstory, allow_delegation=False, **kwargs)
+
+    def execute_task(self, task, context=None, tools=None):
+        try:
+            print(f"Executing task: {task.description}")
+            response = litellm.completion(
+                model="gemini/gemini-2.0-flash",  # Correct model format for LiteLLM
+                messages=[{"role": "user", "content": task.description}],
+                api_key=os.getenv('GOOGLE_API_KEY')
+            )
+            print(f"LiteLLM Response: {response}")
+            # Extract the content and ensure it's treated as the raw output
+            output_content = response.choices[0].message.content
+            print(f"Output content: {output_content}")
+            return output_content # Return the content directly
+        except Exception as e:
+            print(f"Error in LiteLLMAgent execution: {e}")
+            return f"Error: {e}"
+
 class ChatService:
     def __init__(self):
-        self.llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash",
-            google_api_key=os.getenv('GOOGLE_API_KEY')
-        )
-        
-        self.data_processor = Agent(
+        self.data_processor = LiteLLMAgent(
             role='Data Processor',
             goal='Process and analyze data from various sources',
-            backstory='Expert in data processing and analysis',
-            llm=self.llm,
-            verbose=True
+            backstory='Expert in data processing and analysis'
         )
         
         self.connection_string = os.getenv('CONNECTION_URL')
@@ -43,7 +67,7 @@ class ChatService:
                     name VARCHAR(255),
                     reason TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
+                ) 
             """)
         except Exception as e:
             raise Exception(f"Error initializing database: {str(e)}")
@@ -55,9 +79,9 @@ class ChatService:
                 include_tables=[table_name]
             )
             
-            toolkit = SQLDatabaseToolkit(db=db, llm=self.llm)
+            toolkit = SQLDatabaseToolkit(db=db, llm=self.data_processor)
             agent = create_sql_agent(
-                llm=self.llm,
+                llm=self.data_processor,
                 toolkit=toolkit,
                 verbose=True,
                 agent_kwargs={
@@ -72,26 +96,92 @@ class ChatService:
             raise Exception(f"Error processing query: {str(e)}")
 
     def process_new_chat(self, df, jd_text, table_name):
+        # Capture standard output for debugging CrewAI response
+        old_stdout = sys.stdout
+        redirected_output = io.StringIO()
+        sys.stdout = redirected_output
+
         try:
             analysis_task = Task(
-                description=f"Analyze this job description and determine required columns for the candidates table:\n{jd_text}",
-                agent=self.data_processor
+                description=f"Analyze this job description and determine required columns for the candidates table based on the job description provided. Return ONLY a JSON array of strings with the column names, for example: [\"column1\", \"column2\"].\nJob Description:\n{jd_text}",
+                agent=self.data_processor,
+                expected_output="A JSON array of column names required for the candidates table, and ONLY the JSON array."
             )
             
             processing_task = Task(
                 description="Process the candidate data and create the table structure",
-                agent=self.data_processor
+                agent=self.data_processor,
+                expected_output="A JSON object confirming the table structure and data processing, and ONLY the JSON object."
             )
             
             crew = Crew(
                 agents=[self.data_processor],
                 tasks=[analysis_task, processing_task],
+                process=Process.sequential,
                 verbose=True
             )
             
             result = crew.kickoff()
-            columns = json.loads(result)
+
+            # Restore standard output
+            sys.stdout = old_stdout
+            captured_output = redirected_output.getvalue()
+            print(f"Captured CrewAI stdout:\n{captured_output}")
             
+            columns = None
+            raw_output = ""
+            task_output_str = ""
+
+            # Try accessing output from TaskOutput object first
+            if result and result.tasks_output and len(result.tasks_output) > 0:
+                 analysis_task_output = result.tasks_output[0]
+                 raw_output = analysis_task_output.raw
+                 task_output_str = str(analysis_task_output)
+
+                 # Prioritize json_dict if available
+                 if analysis_task_output.json_dict is not None:
+                      columns = analysis_task_output.json_dict
+                      print("Debug: Loaded columns from json_dict.")
+
+                 # If json_dict is empty or None, try parsing the raw output
+                 if columns is None and raw_output:
+                     try:
+                         columns = json.loads(raw_output)
+                         print("Debug: Loaded columns from raw output.")
+                     except json.JSONDecodeError:
+                         print(f"Debug: Raw output is not valid JSON: {raw_output}")
+                         pass # Keep columns as None, proceed to next fallback
+
+                 # If columns is still None, try parsing the string representation of the TaskOutput object
+                 if columns is None and task_output_str:
+                     try:
+                         columns = json.loads(task_output_str)
+                         print("Debug: Loaded columns from TaskOutput string representation.")
+                     except json.JSONDecodeError:
+                         print(f"Debug: TaskOutput string representation is not valid JSON: {task_output_str}")
+                         pass # Keep columns as None, proceed to error below
+
+            # If columns is still None, try parsing the captured standard output as a last resort
+            if columns is None and captured_output:
+                 print("Debug: Attempting to parse captured standard output as JSON.")
+                 # This is a heuristic and might need refinement based on actual stdout content
+                 # We might need to extract the JSON part from the captured output
+                 json_match = re.search(r'(\[.*?\]|\{.*?\})', captured_output)
+                 if json_match:
+                     json_string = json_match.group(0)
+                     try:
+                         columns = json.loads(json_string)
+                         print("Debug: Loaded columns from captured standard output.")
+                     except json.JSONDecodeError:
+                         print(f"Debug: Captured standard output is not valid JSON: {json_string}")
+                         pass
+                 else:
+                      print("Debug: No potential JSON found in captured standard output.")
+
+            # If columns is still None or not a list, raise an error
+            if not isinstance(columns, list) or not columns:
+                 raise Exception(f"Could not extract columns from analysis task output. Expected a non-empty JSON list. Raw output: {raw_output}. TaskOutput string: {task_output_str}. Captured stdout: {captured_output}")
+
             db = SQLDatabase.from_uri(self.connection_string)
             
             columns.append("score")
@@ -107,11 +197,6 @@ class ChatService:
             for _, row in df.iterrows():
                 resume_text = self._download_and_extract_resume(row['pdf_url'])
                 
-                background_check = self._perform_background_check(resume_text, row['linkedin_url'])
-                if not background_check['passed']:
-                    self._add_to_rejected(row['name'], background_check['reason'])
-                    continue
-                
                 candidate_info = self._extract_candidate_info(resume_text)
                 
                 score = self._calculate_score(candidate_info, jd_text)
@@ -125,47 +210,88 @@ class ChatService:
             return {"message": "Processing completed successfully"}
             
         except Exception as e:
+            # Ensure standard output is restored even if an error occurs
+            sys.stdout = old_stdout
             raise Exception(f"Error processing new chat: {str(e)}")
 
+    def _is_google_drive_url(self, url):
+        return 'drive.google.com' in url
+
+    def _get_google_drive_file_id(self, url):
+        if 'id=' in url:
+            return parse_qs(urlparse(url).query)['id'][0]
+        elif '/d/' in url:
+            return url.split('/d/')[1].split('/')[0]
+        return None
+
     def _download_and_extract_resume(self, pdf_url):
-        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
-            response = requests.get(pdf_url)
-            temp_file.write(response.content)
-            temp_file.flush()
-            
-            pdf_reader = PdfReader(temp_file.name)
+        try:
+            # Generate a unique filename in the temp directory
+            temp_file_path = os.path.join(TEMP_DIR, f"{uuid.uuid4()}.pdf")
+
+            if self._is_google_drive_url(pdf_url):
+                file_id = self._get_google_drive_file_id(pdf_url)
+                if not file_id:
+                    raise Exception("Invalid Google Drive URL")
+                
+                gdown.download(f"https://drive.google.com/uc?id={file_id}", temp_file_path, quiet=False)
+                
+                if not os.path.exists(temp_file_path) or os.path.getsize(temp_file_path) == 0:
+                    raise Exception("Failed to download file from Google Drive")
+            else:
+                response = requests.get(pdf_url)
+                if response.status_code != 200:
+                    raise Exception(f"Failed to download PDF: {response.status_code}")
+                # Write directly to the specified temporary file path
+                with open(temp_file_path, 'wb') as temp_file:
+                    temp_file.write(response.content)
+
+            # The file is now closed after writing
+
+            pdf_reader = PdfReader(temp_file_path)
             text = ""
             for page in pdf_reader.pages:
                 text += page.extract_text()
             
-            os.unlink(temp_file.name)
+            os.unlink(temp_file_path) # Now it should be safe to delete
             return text
-
-    def _perform_background_check(self, resume_text, linkedin_url):
-        prompt = f"""Perform a background check on this candidate:
-        Resume: {resume_text}
-        LinkedIn: {linkedin_url}
-        Return a JSON with 'passed' (boolean) and 'reason' (string if failed)."""
-        
-        response = self.llm.invoke(prompt)
-        return json.loads(response.content)
+                
+        except Exception as e:
+            # Attempt to clean up the temporary file if it exists and an error occurred
+            if 'temp_file_path' in locals() and os.path.exists(temp_file_path):
+                 try:
+                     os.unlink(temp_file_path)
+                 except Exception as cleanup_error:
+                     print(f"Error cleaning up temporary file {temp_file_path}: {cleanup_error}")
+            raise Exception(f"Error downloading or processing PDF: {str(e)}")
 
     def _extract_candidate_info(self, resume_text):
-        prompt = f"""Extract candidate information from this resume:
-        {resume_text}
-        Return a JSON object with the extracted information."""
-        
-        response = self.llm.invoke(prompt)
-        return json.loads(response.content)
+        try:
+            response = litellm.completion(
+                model="gemini/gemini-2.0-flash",
+                messages=[{"role": "user", "content": f"Extract candidate information from this resume:\n{resume_text}\nReturn ONLY a JSON object with the extracted information. Structure the JSON with relevant keys like 'name', 'email', 'phone', 'linkedin', 'skills', 'experience', 'education'. Ensure the output is ONLY the JSON object, for example: {{ \"name\": \"John Doe\", \"email\": \"john.doe@example.com\" }}. Do NOT include any other text or formatting before or after the JSON."}],
+                api_key=os.getenv('GOOGLE_API_KEY')
+            )
+            # Ensure we are only trying to load the content of the message
+            llm_output_content = response.choices[0].message.content.strip()
+            print(f"Debug: Raw LLM output for candidate info: {llm_output_content}")
+            return json.loads(llm_output_content)
+        except json.JSONDecodeError as e:
+             # Include the raw output in the error message for debugging
+             raise Exception(f"Error decoding JSON from LLM output for candidate info. Raw output: {llm_output_content}. Error: {e}")
+        except Exception as e:
+            raise Exception(f"Error extracting candidate info: {str(e)}")
 
     def _calculate_score(self, candidate_info, jd_text):
-        prompt = f"""Calculate a match score (0-100) between this candidate and job description:
-        Candidate: {json.dumps(candidate_info)}
-        Job Description: {jd_text}
-        Return only the score number."""
-        
-        response = self.llm.invoke(prompt)
-        return float(response.content.strip())
+        try:
+            response = litellm.completion(
+                model="gemini/gemini-2.0-flash",
+                messages=[{"role": "user", "content": f"Calculate a match score (0-100) between this candidate and job description. Return ONLY the score number as a float.\nCandidate: {json.dumps(candidate_info)}\nJob Description: {jd_text}"}],
+                api_key=os.getenv('GOOGLE_API_KEY')
+            )
+            return float(response.choices[0].message.content.strip())
+        except Exception as e:
+            raise Exception(f"Error calculating score: {str(e)}")
 
     def _add_to_rejected(self, name, reason):
         db = SQLDatabase.from_uri(self.connection_string)

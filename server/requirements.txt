@@ -1,10 +1,12 @@
 crewai==0.121.1
 Flask==3.1.1
 Flask_Cors==4.0.0
+gdown==5.2.0
 langchain_community==0.3.24
 langchain_google_genai==2.1.5
-mysql_connector_repackaged==0.3.1
+mysqlclient==2.2.4
 pandas==2.2.3
+PyMySQL==1.1.1
 PyPDF2==3.0.1
 python-dotenv==1.1.0
 Requests==2.32.3
