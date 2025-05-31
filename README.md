@@ -11,6 +11,7 @@ A Flask-based backend service for a Hiring Copilot that leverages Large Language
 - [Configuration](#configuration)
 - [Usage](#usage)
 - [API Endpoints](#api-endpoints)
+- [Sample Responses](#sample-responses)
 - [Development](#development)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
@@ -190,6 +191,358 @@ Get table structure and sample data.
       "score": 92,
       "skills": "JavaScript, React, Node.js"
     }
+  ]
+}
+```
+
+## Sample Responses
+
+### 1. Natural Language Queries
+
+#### Example 1: Finding Top Candidates
+**Query**: "Show me the top 5 candidates with Python experience"
+```json
+{
+  "explanation": "Here are the top 5 candidates with Python experience, sorted by their match scores:",
+  "results": [
+    {
+      "name": "John Doe",
+      "email": "john@example.com",
+      "score": 95,
+      "skills": "Python, Django, SQL, AWS",
+      "experience": "5 years in Python development"
+    },
+    {
+      "name": "Jane Smith",
+      "email": "jane@example.com",
+      "score": 92,
+      "skills": "Python, Flask, Machine Learning",
+      "experience": "4 years in data science"
+    }
+  ],
+  "sql_query": "SELECT * FROM candidates WHERE skills ILIKE '%Python%' ORDER BY score DESC LIMIT 5",
+  "total_results": 5
+}
+```
+
+#### Example 2: Skill Analysis
+**Query**: "What are the most common skills among candidates with scores above 80?"
+```json
+{
+  "explanation": "The most common skills among high-scoring candidates (>80) are:",
+  "results": {
+    "skills": [
+      {"skill": "Python", "count": 15},
+      {"skill": "JavaScript", "count": 12},
+      {"skill": "AWS", "count": 10}
+    ],
+    "total_candidates": 25
+  },
+  "sql_query": "SELECT skills, COUNT(*) FROM candidates WHERE score > 80 GROUP BY skills ORDER BY count DESC",
+  "total_results": 3
+}
+```
+
+### 2. Resume Processing
+
+#### Example 1: New Candidate Processing
+**Request**: Process new candidates with job description
+```json
+{
+  "message": "Processing completed successfully",
+  "details": {
+    "candidates_processed": 25,
+    "table_name": "software_engineer_candidates",
+    "columns_created": [
+      "name",
+      "email",
+      "phone",
+      "skills",
+      "experience",
+      "education",
+      "score"
+    ],
+    "processing_time": "45.2 seconds"
+  }
+}
+```
+
+#### Example 2: Candidate Information Extraction
+**Input**: Resume PDF
+```json
+{
+  "extracted_info": {
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "phone": "+1-555-0123",
+    "skills": [
+      "Python",
+      "Django",
+      "PostgreSQL",
+      "AWS",
+      "Docker"
+    ],
+    "experience": [
+      {
+        "title": "Senior Software Engineer",
+        "company": "Tech Corp",
+        "duration": "2020-Present",
+        "description": "Led development of microservices architecture"
+      }
+    ],
+    "education": [
+      {
+        "degree": "B.S. Computer Science",
+        "institution": "University of Technology",
+        "year": "2018"
+      }
+    ]
+  }
+}
+```
+
+### 3. Table Insights
+
+#### Example 1: Get Table Structure
+**Request**: Get insights for "software_engineer_candidates"
+```json
+{
+  "columns": [
+    {
+      "name": "id",
+      "type": "SERIAL",
+      "description": "Primary key"
+    },
+    {
+      "name": "name",
+      "type": "TEXT",
+      "description": "Candidate's full name"
+    },
+    {
+      "name": "score",
+      "type": "TEXT",
+      "description": "Match score (0-100)"
+    }
+  ],
+  "sample_data": [
+    {
+      "id": 1,
+      "name": "John Doe",
+      "score": "95",
+      "skills": "Python, Django, AWS"
+    }
+  ],
+  "total_records": 150,
+  "last_updated": "2024-03-15T10:30:00Z"
+}
+```
+
+#### Example 2: Error Response
+**Request**: Query non-existent table
+```json
+{
+  "error": "Table 'non_existent_table' not found or has no accessible columns.",
+  "suggestions": [
+    "Check the table name spelling",
+    "Verify the table exists in the database",
+    "Ensure you have proper permissions"
+  ]
+}
+```
+
+## Complete API Examples
+
+### 1. Process New Candidates
+
+**Request**:
+```http
+POST /newChat
+Content-Type: multipart/form-data
+
+file: candidates.csv
+job_description: job_description.pdf
+tableName: software_engineer_candidates
+```
+
+**Response**:
+```json
+{
+  "message": "Processing completed successfully",
+  "details": {
+    "candidates_processed": 25,
+    "table_name": "software_engineer_candidates",
+    "columns_created": [
+      "name",
+      "email",
+      "phone",
+      "skills",
+      "experience",
+      "education",
+      "score"
+    ],
+    "processing_time": "45.2 seconds",
+    "sample_data": {
+      "first_candidate": {
+        "name": "John Doe",
+        "email": "john@example.com",
+        "score": "95",
+        "skills": "Python, Django, AWS"
+      }
+    }
+  }
+}
+```
+
+### 2. Natural Language Query
+
+**Request**:
+```http
+POST /chat
+Content-Type: application/json
+
+{
+  "tableName": "software_engineer_candidates",
+  "query": "Show me candidates with Python experience and AWS certification"
+}
+```
+
+**Response**:
+```json
+{
+  "explanation": "Found 3 candidates with Python experience and AWS certification:",
+  "results": [
+    {
+      "name": "John Doe",
+      "email": "john@example.com",
+      "score": "95",
+      "skills": "Python, Django, AWS, AWS Solutions Architect",
+      "experience": "5 years in cloud development"
+    },
+    {
+      "name": "Jane Smith",
+      "email": "jane@example.com",
+      "score": "92",
+      "skills": "Python, Flask, AWS, AWS Developer Associate",
+      "experience": "4 years in backend development"
+    }
+  ],
+  "sql_query": "SELECT * FROM software_engineer_candidates WHERE skills ILIKE '%Python%' AND skills ILIKE '%AWS%' ORDER BY score DESC",
+  "total_results": 3,
+  "execution_time": "1.2 seconds"
+}
+```
+
+### 3. Get Table Structure
+
+**Request**:
+```http
+GET /getinsights?tableName=software_engineer_candidates
+```
+
+**Response**:
+```json
+{
+  "table_info": {
+    "name": "software_engineer_candidates",
+    "total_records": 150,
+    "last_updated": "2024-03-15T10:30:00Z"
+  },
+  "columns": [
+    {
+      "name": "id",
+      "type": "SERIAL",
+      "description": "Primary key"
+    },
+    {
+      "name": "name",
+      "type": "TEXT",
+      "description": "Candidate's full name"
+    },
+    {
+      "name": "email",
+      "type": "TEXT",
+      "description": "Candidate's email address"
+    },
+    {
+      "name": "score",
+      "type": "TEXT",
+      "description": "Match score (0-100)"
+    }
+  ],
+  "sample_data": [
+    {
+      "id": 1,
+      "name": "John Doe",
+      "email": "john@example.com",
+      "score": "95",
+      "skills": "Python, Django, AWS"
+    },
+    {
+      "id": 2,
+      "name": "Jane Smith",
+      "email": "jane@example.com",
+      "score": "92",
+      "skills": "Python, Flask, Machine Learning"
+    }
+  ]
+}
+```
+
+### 4. Error Handling Examples
+
+#### Invalid Table Name
+**Request**:
+```http
+POST /chat
+Content-Type: application/json
+
+{
+  "tableName": "non_existent_table",
+  "query": "Show me all candidates"
+}
+```
+
+**Response**:
+```json
+{
+  "error": "Table 'non_existent_table' not found or has no accessible columns.",
+  "suggestions": [
+    "Check the table name spelling",
+    "Verify the table exists in the database",
+    "Ensure you have proper permissions"
+  ],
+  "available_tables": [
+    "software_engineer_candidates",
+    "data_scientist_candidates",
+    "product_manager_candidates"
+  ]
+}
+```
+
+#### Invalid File Format
+**Request**:
+```http
+POST /newChat
+Content-Type: multipart/form-data
+
+file: invalid.txt
+job_description: job_description.pdf
+tableName: new_candidates
+```
+
+**Response**:
+```json
+{
+  "error": "Invalid file format",
+  "details": {
+    "expected_format": "CSV",
+    "received_format": "TXT",
+    "required_columns": ["name", "pdf_url"]
+  },
+  "suggestions": [
+    "Ensure the file is in CSV format",
+    "Verify the file contains required columns",
+    "Check file encoding (UTF-8 recommended)"
   ]
 }
 ```
