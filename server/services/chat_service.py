@@ -34,15 +34,15 @@ class LiteLLMAgent(Agent):
         try:
             print(f"Executing task: {task.description}")
             response = litellm.completion(
-                model="gemini/gemini-2.0-flash",  # Correct model format for LiteLLM
+                model="gemini/gemini-2.0-flash",
                 messages=[{"role": "user", "content": task.description}],
                 api_key=os.getenv('GOOGLE_API_KEY')
             )
             print(f"LiteLLM Response: {response}")
-            # Extract the content and ensure it's treated as the raw output
+            
             output_content = response.choices[0].message.content
             print(f"Output content: {output_content}")
-            return output_content # Return the content directly
+            return output_content
         except Exception as e:
             print(f"Error in LiteLLMAgent execution: {e}")
             return f"Error: {e}"
@@ -73,7 +73,7 @@ class ChatService:
             raise Exception(f"Error initializing database: {str(e)}")
 
     def _get_db_connection(self):
-        """Create a direct PyMySQL connection for operations that need more control"""
+        
         try:
             parsed = urlparse(self.connection_string)
             db_config = {
@@ -113,7 +113,7 @@ class ChatService:
 
     def process_new_chat(self, df, jd_text, table_name):
         try:
-            # Step 1: Extract columns directly using LiteLLM (bypass CrewAI complexity)
+            
             print("Step 1: Analyzing job description to determine required columns...")
             columns_response = litellm.completion(
                 model="gemini/gemini-2.0-flash",
@@ -124,7 +124,7 @@ class ChatService:
             columns_content = columns_response.choices[0].message.content.strip()
             print(f"Debug: Raw columns response: {columns_content}")
             
-            # Clean up markdown formatting if present
+            
             if columns_content.startswith('```json'):
                 columns_content = columns_content[len('```json'):].lstrip()
             if columns_content.endswith('```'):
@@ -136,26 +136,26 @@ class ChatService:
                     raise ValueError("Expected non-empty list")
             except (json.JSONDecodeError, ValueError) as e:
                 print(f"Failed to parse columns JSON, using default: {e}")
-                # Fallback to default columns
+                
                 columns = ["name", "email", "phone", "skills", "experience", "education", "linkedin"]
             
             print(f"Debug: Extracted columns: {columns}")
             
-            # Add score column if not present
+            
             if 'score' not in [col.lower() for col in columns]:
                 columns.append("score")
 
-            # Step 2: Create table
+            
             print(f"Step 2: Creating table {table_name} with columns: {columns}")
             connection = self._get_db_connection()
             
             try:
                 cursor = connection.cursor()
                 
-                # Drop table if exists to ensure clean slate
+                
                 cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
                 
-                # Create table with proper columns
+                
                 create_table_columns = ', '.join([f'`{col}` TEXT' for col in columns])
                 create_table_sql = f"""
                     CREATE TABLE {table_name} (
@@ -169,7 +169,7 @@ class ChatService:
                 connection.commit()
                 print(f"Table {table_name} created successfully")
                 
-                # Step 3: Process each candidate
+                
                 print("Step 3: Processing candidates...")
                 processed_count = 0
                 
@@ -177,27 +177,27 @@ class ChatService:
                     try:
                         print(f"Processing candidate {index + 1}/{len(df)}")
                         
-                        # Download and extract resume text
+                        
                         resume_text = self._download_and_extract_resume(row['pdf_url'])
                         print(f"Resume text extracted, length: {len(resume_text)} characters")
                         
-                        # Extract candidate information based on JD requirements
+                        
                         print("Extracting candidate information...")
                         candidate_info = self._extract_candidate_info_for_jd(resume_text, jd_text, columns)
                         print(f"Candidate info extracted: {list(candidate_info.keys())}")
                         
-                        # Calculate match score
+                        
                         print("Calculating match score...")
                         score = self._calculate_score(candidate_info, jd_text)
                         candidate_info['score'] = str(score)
                         print(f"Match score: {score}")
                         
-                        # Insert into database
+                        
                         insert_columns = ', '.join([f'`{col}`' for col in columns])
                         placeholders = ', '.join(['%s'] * len(columns))
                         insert_sql = f"INSERT INTO {table_name} ({insert_columns}) VALUES ({placeholders})"
                         
-                        # Prepare values in the same order as columns
+                        
                         values = []
                         for col in columns:
                             value = candidate_info.get(col, '')
@@ -214,7 +214,7 @@ class ChatService:
                         
                     except Exception as candidate_error:
                         print(f"Error processing candidate {index + 1}: {candidate_error}")
-                        continue  # Skip this candidate but continue with others
+                        continue
 
                 print(f"Processing completed. {processed_count} candidates processed successfully.")
 
@@ -242,7 +242,7 @@ class ChatService:
 
     def _download_and_extract_resume(self, pdf_url):
         try:
-            # Generate a unique filename in the temp directory
+            
             temp_file_path = os.path.join(TEMP_DIR, f"{uuid.uuid4()}.pdf")
 
             if self._is_google_drive_url(pdf_url):
@@ -258,22 +258,22 @@ class ChatService:
                 response = requests.get(pdf_url)
                 if response.status_code != 200:
                     raise Exception(f"Failed to download PDF: {response.status_code}")
-                # Write directly to the specified temporary file path
+                
                 with open(temp_file_path, 'wb') as temp_file:
                     temp_file.write(response.content)
 
-            # The file is now closed after writing
+            
 
             pdf_reader = PdfReader(temp_file_path)
             text = ""
             for page in pdf_reader.pages:
                 text += page.extract_text()
             
-            os.unlink(temp_file_path) # Now it should be safe to delete
+            os.unlink(temp_file_path)
             return text
                 
         except Exception as e:
-            # Attempt to clean up the temporary file if it exists and an error occurred
+            
             if 'temp_file_path' in locals() and os.path.exists(temp_file_path):
                  try:
                      os.unlink(temp_file_path)
@@ -288,11 +288,11 @@ class ChatService:
                 messages=[{"role": "user", "content": f"Extract candidate information from this resume:\n{resume_text}\nReturn ONLY a JSON object with the extracted information. Structure the JSON with relevant keys like 'name', 'email', 'phone', 'linkedin', 'skills', 'experience', 'education'. Ensure the output is ONLY the JSON object, for example: {{ \"name\": \"John Doe\", \"email\": \"john.doe@example.com\" }}. Do NOT include any other text or formatting before or after the JSON."}],
                 api_key=os.getenv('GOOGLE_API_KEY')
             )
-            # Ensure we are only trying to load the content of the message
+            
             llm_output_content = response.choices[0].message.content.strip()
             print(f"Debug: Raw LLM output for candidate info: {llm_output_content}")
 
-            # Remove markdown code block formatting if present
+            
             if llm_output_content.startswith('```json'):
                 llm_output_content = llm_output_content[len('```json'):].lstrip()
             if llm_output_content.endswith('```'):
@@ -300,15 +300,15 @@ class ChatService:
 
             return json.loads(llm_output_content)
         except json.JSONDecodeError as e:
-             # Include the raw output in the error message for debugging
+             
              raise Exception(f"Error decoding JSON from LLM output for candidate info. Raw output: {llm_output_content}. Error: {e}")
         except Exception as e:
             raise Exception(f"Error extracting candidate info: {str(e)}")
 
     def _extract_candidate_info_for_jd(self, resume_text, jd_text, required_columns):
-        """Extract candidate information specifically tailored to job description requirements"""
+        
         try:
-            columns_str = ', '.join(required_columns[:-1])  # Exclude 'score' column
+            columns_str = ', '.join(required_columns[:-1])
             
             prompt = f"""
             Extract candidate information from this resume based on the job description requirements.
@@ -340,7 +340,7 @@ class ChatService:
             llm_output_content = response.choices[0].message.content.strip()
             print(f"Debug: Raw LLM output for JD-specific candidate info: {llm_output_content[:200]}...")
 
-            # Remove markdown code block formatting if present
+            
             if llm_output_content.startswith('```json'):
                 llm_output_content = llm_output_content[len('```json'):].lstrip()
             if llm_output_content.endswith('```'):
@@ -348,7 +348,7 @@ class ChatService:
 
             candidate_info = json.loads(llm_output_content)
             
-            # Ensure all required columns are present (except score)
+            
             for col in required_columns:
                 if col != 'score' and col not in candidate_info:
                     candidate_info[col] = ''
@@ -358,7 +358,7 @@ class ChatService:
         except json.JSONDecodeError as e:
             print(f"JSON decode error: {e}")
             print(f"Raw output: {llm_output_content}")
-            # Return default structure if JSON parsing fails
+            
             default_info = {}
             for col in required_columns:
                 if col != 'score':
@@ -417,7 +417,7 @@ class ChatService:
             connection = self._get_db_connection()
             cursor = connection.cursor()
             
-            # Get column names
+            
             cursor.execute(f"""
                 SELECT column_name 
                 FROM information_schema.columns 
@@ -427,7 +427,7 @@ class ChatService:
             columns_result = cursor.fetchall()
             columns = [row[0] for row in columns_result]
             
-            # Get table data
+            
             cursor.execute(f"SELECT * FROM `{table_name}`")
             data_result = cursor.fetchall()
             
