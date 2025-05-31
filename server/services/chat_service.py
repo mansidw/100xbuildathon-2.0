@@ -72,6 +72,22 @@ class ChatService:
         except Exception as e:
             raise Exception(f"Error initializing database: {str(e)}")
 
+    def _get_db_connection(self):
+        """Create a direct PyMySQL connection for operations that need more control"""
+        try:
+            parsed = urlparse(self.connection_string)
+            db_config = {
+                'host': parsed.hostname,
+                'port': parsed.port or 3306,
+                'user': parsed.username,
+                'password': parsed.password,
+                'database': parsed.path.lstrip('/'),
+                'charset': 'utf8mb4'
+            }
+            return pymysql.connect(**db_config)
+        except Exception as e:
+            raise Exception(f"Error creating database connection: {str(e)}")
+
     def process_query(self, table_name, query):
         try:
             db = SQLDatabase.from_uri(
@@ -182,30 +198,64 @@ class ChatService:
             if not isinstance(columns, list) or not columns:
                  raise Exception(f"Could not extract columns from analysis task output. Expected a non-empty JSON list. Raw output: {raw_output}. TaskOutput string: {task_output_str}. Captured stdout: {captured_output}")
 
-            db = SQLDatabase.from_uri(self.connection_string)
+            # Create table using direct database connection
+            connection = self._get_db_connection()
             
-            columns.append("score")
-            create_table_sql = f"""
-                CREATE TABLE IF NOT EXISTS {table_name} (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    {', '.join([f'{col} VARCHAR(255)' for col in columns])},
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """
-            db.run(create_table_sql)
-            
-            for _, row in df.iterrows():
-                resume_text = self._download_and_extract_resume(row['pdf_url'])
+            try:
+                cursor = connection.cursor()
                 
-                candidate_info = self._extract_candidate_info(resume_text)
+                # Ensure the score column is not added if it already exists in the list from the LLM
+                if 'score' not in [col.lower() for col in columns]:
+                     columns.append("score")
+
+                # Construct CREATE TABLE SQL using backticks
+                create_table_columns = ', '.join([f'`{col}` VARCHAR(255)' for col in columns])
+                create_table_sql = f"""
+                    CREATE TABLE IF NOT EXISTS {table_name} (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        {create_table_columns},
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """
+                cursor.execute(create_table_sql)
+                connection.commit()
                 
-                score = self._calculate_score(candidate_info, jd_text)
-                candidate_info['score'] = str(score)
-                
-                placeholders = ', '.join(['%s' for _ in columns])
-                values = [candidate_info.get(col, '') for col in columns]
-                insert_sql = f"INSERT INTO {table_name} ({', '.join(columns)}) VALUES ({placeholders})"
-                db.run(insert_sql, values)
+                # Process each candidate
+                for _, row in df.iterrows():
+                    resume_text = self._download_and_extract_resume(row['pdf_url'])
+                    
+                    candidate_info = self._extract_candidate_info(resume_text)
+                    
+                    score = self._calculate_score(candidate_info, jd_text)
+                    # Ensure score is a string before adding to candidate_info for consistency with VARCHAR(255)
+                    candidate_info['score'] = str(score)
+                    
+                    # Use parameterized query for security
+                    insert_columns = ', '.join([f'`{col}`' for col in columns])
+                    placeholders = ', '.join(['%s'] * len(columns))
+                    insert_sql = f"INSERT INTO {table_name} ({insert_columns}) VALUES ({placeholders})"
+                    
+                    # Prepare values in the same order as columns
+                    values = []
+                    for col in columns:
+                        value = candidate_info.get(col, '')
+                        if value is None:
+                            values.append('')
+                        else:
+                            values.append(str(value))
+                    
+                    print(f"Debug: INSERT SQL: {insert_sql}")
+                    print(f"Debug: Values: {values}")
+                    
+                    cursor.execute(insert_sql, values)
+                    connection.commit()
+
+            except Exception as e:
+                connection.rollback()
+                raise Exception(f"Database operation failed: {e}")
+            finally:
+                cursor.close()
+                connection.close()
             
             return {"message": "Processing completed successfully"}
             
@@ -301,28 +351,27 @@ class ChatService:
             raise Exception(f"Error calculating score: {str(e)}")
 
     def _add_to_rejected(self, name, reason):
-        db = SQLDatabase.from_uri(self.connection_string)
-        db.run(
-            "INSERT INTO rejected_candidates (name, reason) VALUES (%s, %s)",
-            (name, reason)
-        )
+        connection = self._get_db_connection()
+        try:
+            cursor = connection.cursor()
+            cursor.execute(
+                "INSERT INTO rejected_candidates (name, reason) VALUES (%s, %s)",
+                (name, reason)
+            )
+            connection.commit()
+        except Exception as e:
+            connection.rollback()
+            raise Exception(f"Error adding to rejected candidates: {str(e)}")
+        finally:
+            cursor.close()
+            connection.close()
 
     def get_all_tables(self):
         try:
-            parsed = urlparse(self.connection_string)
-            db_config = {
-                'host': parsed.hostname,
-                'port': parsed.port or 3306,
-                'user': parsed.username,
-                'password': parsed.password,
-                'database': parsed.path.lstrip('/'),
-                'charset': 'utf8mb4'
-            }
-            
-            connection = pymysql.connect(**db_config)
+            connection = self._get_db_connection()
             cursor = connection.cursor()
             
-            cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = %s", (db_config['database'],))
+            cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()")
             tables_result = cursor.fetchall()
             
             tables = [row[0] for row in tables_result]
@@ -337,19 +386,22 @@ class ChatService:
 
     def get_table_insights(self, table_name):
         try:
-            db = SQLDatabase.from_uri(self.connection_string)
+            connection = self._get_db_connection()
+            cursor = connection.cursor()
             
-            columns_query = f"""
+            # Get column names
+            cursor.execute(f"""
                 SELECT column_name 
                 FROM information_schema.columns 
-                WHERE table_schema = 'classicmodels' 
-                AND table_name = '{table_name}'
-            """
-            columns_result = db.run(columns_query)
+                WHERE table_schema = DATABASE() 
+                AND table_name = %s
+            """, (table_name,))
+            columns_result = cursor.fetchall()
             columns = [row[0] for row in columns_result]
             
-            data_query = f"SELECT * FROM {table_name}"
-            data_result = db.run(data_query)
+            # Get table data
+            cursor.execute(f"SELECT * FROM `{table_name}`")
+            data_result = cursor.fetchall()
             
             table_data = []
             for row in data_result:
@@ -361,6 +413,9 @@ class ChatService:
                     else:
                         row_dict[col] = None
                 table_data.append(row_dict)
+            
+            cursor.close()
+            connection.close()
             
             return {
                 "columns": columns,
