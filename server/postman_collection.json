@@ -1,7 +1,7 @@
 {
 	"info": {
 		"_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-		"name": "Hiring Copilot API",
+		"name": "100x API",
 		"description": "API collection for the AI-powered hiring copilot",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
