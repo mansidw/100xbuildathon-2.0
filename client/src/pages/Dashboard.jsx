@@ -83,18 +83,43 @@ const Dashboard = () => {
 
   const fetchTableName = async () => {
     try {
-      const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/gettables`);
-      if (response.data.tables && response.data.tables.length > 0) {
-        setAvailableTables(response.data.tables);
-        setLoading(false);
+      setLoading(true);
+      // Use localhost for development, ngrok URL for production
+      const backendUrl = import.meta.env.PROD 
+        ? 'https://5a4e-45-127-45-47.ngrok-free.app'
+        : 'http://localhost:5000';
+        
+      const response = await axios.get(`${backendUrl}/gettables`);
+      console.log("Tables response:", response.data);
+      
+      if (response.data && Array.isArray(response.data.tables)) {
+        // Filter out system tables and sort by timestamp (newest first)
+        const userTables = response.data.tables
+          .filter(tableName => !['rejected_candidates', 'candidates'].includes(tableName))
+          .sort((a, b) => {
+            // Extract timestamps from table names
+            const timestampA = a.split('_').pop();
+            const timestampB = b.split('_').pop();
+            return parseInt(timestampB) - parseInt(timestampA);
+          });
+        
+        if (userTables.length > 0) {
+          setAvailableTables(userTables);
+          setError(null);
+        } else {
+          setError("No analysis tables found. Please create a new analysis first.");
+          setAvailableTables([]);
+        }
       } else {
-        setError("No tables found");
-        setLoading(false);
+        setError("Invalid response format from server");
+        setAvailableTables([]);
       }
     } catch (err) {
-      setError("Failed to fetch table name");
+      console.error("Error fetching tables:", err);
+      setError("Failed to fetch tables. Please try again later.");
+      setAvailableTables([]);
+    } finally {
       setLoading(false);
-      console.error("Error fetching table name:", err);
     }
   };
 
@@ -107,7 +132,11 @@ const Dashboard = () => {
   const fetchTableData = async (table) => {
     try {
       setLoading(true);
-      const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/insights?tableName=${table}`);
+      const backendUrl = import.meta.env.PROD 
+        ? 'https://5a4e-45-127-45-47.ngrok-free.app'
+        : 'http://localhost:5000';
+        
+      const response = await axios.get(`${backendUrl}/insights?tableName=${table}`);
       setTableData(response.data);
       setError(null);
     } catch (err) {
@@ -120,7 +149,11 @@ const Dashboard = () => {
 
   const fetchCandidateDetails = async (name) => {
     try {
-      const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/candidate/${encodeURIComponent(name)}`);
+      const backendUrl = import.meta.env.PROD 
+        ? 'https://5a4e-45-127-45-47.ngrok-free.app'
+        : 'http://localhost:5000';
+        
+      const response = await axios.get(`${backendUrl}/candidate/${encodeURIComponent(name)}`);
       setSelectedCandidate(response.data);
     } catch (err) {
       console.error("Error fetching candidate details:", err);
@@ -324,14 +357,33 @@ const Dashboard = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-[#000000] p-6 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-[#FFFFFF]">{error}</h2>
-          <button
-            onClick={fetchTableName}
-            className="mt-4 px-4 py-2 bg-[#FFFFFF] text-[#000000] rounded-lg hover:bg-[#FFFFFF]/90"
-          >
-            Retry
-          </button>
+        <div className="text-center max-w-md">
+          <h2 className="text-2xl font-bold text-[#FFFFFF] mb-4">{error}</h2>
+          <p className="text-[#808080] mb-6">
+            {error.includes("No tables found") 
+              ? "You need to create a new analysis first. Go to the chat interface to start analyzing candidates."
+              : "Please try again later or contact support if the issue persists."}
+          </p>
+          {error.includes("No tables found") && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => window.location.href = '/chat'}
+              className="px-6 py-3 bg-[#FFFFFF] text-[#000000] rounded-lg hover:bg-[#FFFFFF]/90"
+            >
+              Go to Chat Interface
+            </motion.button>
+          )}
+          {!error.includes("No tables found") && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={fetchTableName}
+              className="px-6 py-3 bg-[#FFFFFF] text-[#000000] rounded-lg hover:bg-[#FFFFFF]/90"
+            >
+              Retry
+            </motion.button>
+          )}
         </div>
       </div>
     );
