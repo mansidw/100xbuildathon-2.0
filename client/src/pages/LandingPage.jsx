@@ -131,6 +131,35 @@ const LandingPage = () => {
     };
   }, []);
 
+  // How It Works steps
+  const howItWorksSteps = [
+    {
+      number: 1,
+      title: "Upload Data",
+      description: "Upload your job description and candidate resumes"
+    },
+    {
+      number: 2,
+      title: "AI Analysis",
+      description: "Our AI processes and analyzes the data"
+    },
+    {
+      number: 3,
+      title: "Background Verification",
+      description: "Automated checks for candidate background and credentials"
+    },
+    {
+      number: 4,
+      title: "Chat and Interact",
+      description: "Chat with the AI to refine results and get detailed answers"
+    },
+    {
+      number: 5,
+      title: "Get Insights",
+      description: "Receive comprehensive insights and make informed decisions"
+    }
+  ];
+
   return (
     <div className="min-h-screen bg-[#000000] text-[#FFFFFF] overflow-hidden">
       {/* Three.js Background */}
@@ -192,7 +221,7 @@ const LandingPage = () => {
 
           {/* Scroll Down Indicator */}
           <motion.div
-            className="mt-auto text-[#FFFFFF] cursor-pointer"
+            className="mt-auto text-[#FFFFFF] cursor-pointer flex items-center gap-2"
             animate={{ y: [0, 10, 0] }}
             transition={{
               repeat: Infinity,
@@ -200,6 +229,7 @@ const LandingPage = () => {
               ease: "easeInOut",
             }}
           >
+            <p className="text-lg">Scroll to learn more</p>
             <ChevronDown size={32} />
           </motion.div>
         </motion.div>
@@ -300,46 +330,28 @@ const LandingPage = () => {
             How It Works
           </motion.h2>
 
-          <div className="max-w-4xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px 0px" }}
-                transition={{ delay: 0.1 }}
-              >
-                <div className="w-16 h-16 bg-[#FFFFFF]/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-[#FFFFFF]/20">
-                  <span className="text-2xl font-bold">1</span>
-                </div>
-                <h3 className="text-xl font-semibold mb-2">Upload Data</h3>
-                <p className="text-[#808080]">Upload your job description and candidate resumes</p>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px 0px" }}
-                transition={{ delay: 0.2 }}
-              >
-                <div className="w-16 h-16 bg-[#FFFFFF]/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-[#FFFFFF]/20">
-                  <span className="text-2xl font-bold">2</span>
-                </div>
-                <h3 className="text-xl font-semibold mb-2">AI Analysis</h3>
-                <p className="text-[#808080]">Our AI processes and analyzes the data</p>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px 0px" }}
-                transition={{ delay: 0.3 }}
-              >
-                <div className="w-16 h-16 bg-[#FFFFFF]/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-[#FFFFFF]/20">
-                  <span className="text-2xl font-bold">3</span>
-                </div>
-                <h3 className="text-xl font-semibold mb-2">Get Insights</h3>
-                <p className="text-[#808080]">Receive detailed insights and recommendations</p>
-              </motion.div>
+          <div className="max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 text-center">
+              {howItWorksSteps.map((step, index) => (
+                <motion.div
+                  key={step.number}
+                  className="flex flex-col items-center p-2 rounded-xl cursor-pointer relative"
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-50px 0px" }}
+                  transition={{ delay: index * 0.1 }}
+                  whileHover={{ scale: 1.05, backgroundColor: '#FFFFFF', backgroundColor: '#333333', color: '#FFFFFF'  }}
+                >
+                   {index < howItWorksSteps.length - 1 && (
+                    <div className="hidden md:block absolute top-1/2 right-0 w-8 h-1 bg-[#808080]/50 transform translate-x-full -translate-y-1/2"></div>
+                  )}
+                  <div className="w-16 h-16 bg-[#FFFFFF]/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-[#FFFFFF]/20">
+                    <span className="text-2xl font-bold text-[#FFFFFF]">{step.number}</span>
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2 text-[#FFFFFF]">{step.title}</h3>
+                  <p className="text-[#808080]">{step.description}</p>
+                </motion.div>
+              ))}
             </div>
           </div>
         </div>
@@ -369,7 +381,7 @@ const LandingPage = () => {
         {/* Footer */}
         <footer className="py-8 px-4 text-center text-[#808080]">
           <div className="max-w-6xl mx-auto border-t border-[#FFFFFF]/10 pt-8">
-            <p>&copy; 2023 Hire AI. All rights reserved.</p>
+            
           </div>
         </footer>
       </div>
