@@ -603,3 +603,107 @@ class ChatService:
             
         except Exception as e:
             raise Exception(f"Error getting table insights: {str(e)}")
+
+    def get_candidate_details(self, candidate_id):
+        try:
+            connection = self._get_db_connection()
+            cursor = connection.cursor()
+            
+            # Get all tables
+            cursor.execute("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public'
+                AND table_type = 'BASE TABLE'
+            """)
+            tables = [row[0] for row in cursor.fetchall()]
+            
+            # Search for candidate in each table
+            for table in tables:
+                cursor.execute(f"""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_schema = 'public' 
+                    AND table_name = %s
+                    ORDER BY ordinal_position
+                """, (table,))
+                columns = [row[0] for row in cursor.fetchall()]
+                
+                # Check if table has id column
+                if 'id' in columns:
+                    cursor.execute(f'SELECT * FROM "{table}" WHERE id = %s', (candidate_id,))
+                    result = cursor.fetchone()
+                    
+                    if result:
+                        # Convert result to dictionary
+                        candidate_data = {}
+                        for i, col in enumerate(columns):
+                            value = result[i]
+                            candidate_data[col] = str(value) if value is not None else None
+                        
+                        cursor.close()
+                        connection.close()
+                        return candidate_data
+            
+            cursor.close()
+            connection.close()
+            return None
+            
+        except Exception as e:
+            if 'cursor' in locals():
+                cursor.close()
+            if 'connection' in locals():
+                connection.close()
+            raise Exception(f"Error getting candidate details: {str(e)}")
+
+    def get_candidate_details_by_name(self, name):
+        try:
+            connection = self._get_db_connection()
+            cursor = connection.cursor()
+            
+            # Get all tables
+            cursor.execute("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public'
+                AND table_type = 'BASE TABLE'
+            """)
+            tables = [row[0] for row in cursor.fetchall()]
+            
+            # Search for candidate in each table
+            for table in tables:
+                cursor.execute(f"""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_schema = 'public' 
+                    AND table_name = %s
+                    ORDER BY ordinal_position
+                """, (table,))
+                columns = [row[0] for row in cursor.fetchall()]
+                
+                # Check if table has name column
+                if 'name' in columns:
+                    cursor.execute(f'SELECT * FROM "{table}" WHERE name = %s', (name,))
+                    result = cursor.fetchone()
+                    
+                    if result:
+                        # Convert result to dictionary
+                        candidate_data = {}
+                        for i, col in enumerate(columns):
+                            value = result[i]
+                            candidate_data[col] = str(value) if value is not None else None
+                        
+                        cursor.close()
+                        connection.close()
+                        return candidate_data
+            
+            cursor.close()
+            connection.close()
+            return None
+            
+        except Exception as e:
+            if 'cursor' in locals():
+                cursor.close()
+            if 'connection' in locals():
+                connection.close()
+            raise Exception(f"Error getting candidate details: {str(e)}")

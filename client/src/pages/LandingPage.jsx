@@ -340,7 +340,7 @@ const LandingPage = () => {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: "-50px 0px" }}
                   transition={{ delay: index * 0.1 }}
-                  whileHover={{ scale: 1.05, backgroundColor: '#FFFFFF', backgroundColor: '#333333', color: '#FFFFFF'  }}
+                  whileHover={{ scale: 1.05, backgroundColor: '#FFFFFF', color: '#FFFFFF'  }}
                 >
                    {index < howItWorksSteps.length - 1 && (
                     <div className="hidden md:block absolute top-1/2 right-0 w-8 h-1 bg-[#808080]/50 transform translate-x-full -translate-y-1/2"></div>

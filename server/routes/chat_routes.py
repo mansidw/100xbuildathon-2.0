@@ -13,6 +13,29 @@ chat_bp = Blueprint('chat', __name__)
 chat_service = ChatService()
 insights_service = InsightsService()
 
+@chat_bp.route('/insights', methods=['GET'])
+def get_insights():
+    try:
+        table_name = request.args.get('tableName')
+        if not table_name:
+            return jsonify({"error": "Missing tableName parameter"}), 400
+            
+        # Get insights for the specified table
+        insights = insights_service.generate_insights(table_name)
+        return jsonify(insights)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@chat_bp.route('/candidate/<name>', methods=['GET'])
+def get_candidate(name):
+    try:
+        candidate = chat_service.get_candidate_details_by_name(name)
+        if not candidate:
+            return jsonify({"error": "Candidate not found"}), 404
+        return jsonify(candidate)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @chat_bp.route('/chat', methods=['POST'])
 def chat():
     try:
@@ -70,19 +93,5 @@ def get_tables():
     try:
         tables = chat_service.get_all_tables()
         return jsonify({"tables": tables})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@chat_bp.route('/getinsights', methods=['GET'])
-def get_insights():
-    try:
-        table_name = request.args.get('tableName')
-        if not table_name:
-            return jsonify({"error": "Missing tableName"}), 400
-            
-        table_data = chat_service.get_table_insights(table_name)
-        insights = insights_service.generate_insights(table_name, table_data)
-        
-        return jsonify(insights)
     except Exception as e:
         return jsonify({"error": str(e)}), 500 

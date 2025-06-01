@@ -1,70 +1,561 @@
+import { useState, useEffect, useRef } from "react";
 import InsightsDashboard from "@/components/InsightsDashboard/InsightsDashboard";
-import posthog from "posthog-js";
+import { Card, CardContent } from "@/components/ui/card";
+import { motion, AnimatePresence } from "framer-motion";
+import { User, X, BarChart2, ChevronDown } from "lucide-react";
+import axios from "axios";
 
-const mockChartData = [
-  {
-    type: "bar",
-    data: {
-      title: "Revenue by Region",
-      categories: ["North", "South", "East", "West"],
-      yAxisTitle: "Revenue (in millions)",
-      series: [
-        {
-          name: "2023",
-          data: [29.9, 71.5, 106.4, 129.2],
-        },
-      ],
-    },
-  },
-  {
-    type: "pie",
-    data: {
-      title: "Market Share",
-      seriesName: "Brands",
-      data: [
-        { name: "Brand A", y: 61.41 },
-        { name: "Brand B", y: 11.84 },
-        { name: "Brand C", y: 10.85 },
-        { name: "Others", y: 15.9 },
-      ],
-    },
-  },
+const TableDropdown = ({ tables, selectedTable, onSelect }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
-  {
-    type: "line",
-    data: {
-      title: "Monthly Sales",
-      categories: ["Jan", "Feb", "Mar", "Apr", "May"],
-      yAxisTitle: "Sales (in units)",
-      series: [
-        {
-          name: "Product A",
-          data: [150, 200, 170, 220, 190],
-        },
-        {
-          name: "Product B",
-          data: [100, 140, 110, 160, 130],
-        },
-      ],
-    },
-  },
-];
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelect = (table) => {
+    onSelect(table);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="px-4 py-2 bg-[#FFFFFF]/10 text-[#FFFFFF] rounded-lg hover:bg-[#FFFFFF]/20 flex items-center gap-2 min-w-[200px] justify-between"
+      >
+        <span className="truncate">{selectedTable || "Select Table"}</span>
+        <ChevronDown 
+          size={16} 
+          className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="absolute top-full left-0 mt-2 w-full bg-[#000000] border border-[#808080]/20 rounded-lg shadow-lg z-50"
+          >
+            <div className="max-h-60 overflow-y-auto">
+              {tables.map((table) => (
+                <button
+                  key={table}
+                  type="button"
+                  onClick={() => handleSelect(table)}
+                  className={`w-full px-4 py-2 text-left hover:bg-[#FFFFFF]/10 ${
+                    table === selectedTable ? 'bg-[#FFFFFF]/20' : ''
+                  }`}
+                >
+                  <span className="text-[#FFFFFF] truncate block">{table}</span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 const Dashboard = () => {
+  const [tableData, setTableData] = useState(null);
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [tableName, setTableName] = useState("");
+  const [availableTables, setAvailableTables] = useState([]);
 
-  posthog.capture("dashboard_viewed", {
-    timestamp: new Date().toISOString(),
-    properties: {
-      page: "Dashboard",
-    },
-  });
+  useEffect(() => {
+    fetchTableName();
+  }, []);
+
+  const fetchTableName = async () => {
+    try {
+      const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/gettables`);
+      if (response.data.tables && response.data.tables.length > 0) {
+        setAvailableTables(response.data.tables);
+        setLoading(false);
+      } else {
+        setError("No tables found");
+        setLoading(false);
+      }
+    } catch (err) {
+      setError("Failed to fetch table name");
+      setLoading(false);
+      console.error("Error fetching table name:", err);
+    }
+  };
+
+  const handleTableSelect = (table) => {
+    setTableName(table);
+    setSelectedCandidate(null);
+    fetchTableData(table);
+  };
+
+  const fetchTableData = async (table) => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/insights?tableName=${table}`);
+      setTableData(response.data);
+      setError(null);
+    } catch (err) {
+      setError("Failed to fetch data");
+      console.error("Error fetching data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCandidateDetails = async (name) => {
+    try {
+      const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/candidate/${encodeURIComponent(name)}`);
+      setSelectedCandidate(response.data);
+    } catch (err) {
+      console.error("Error fetching candidate details:", err);
+    }
+  };
+
+  const generateCharts = () => {
+    if (!tableData?.data || !tableData?.columns) return [];
+
+    const charts = [];
+    const data = tableData.data;
+    const columns = tableData.columns;
+
+    // Helper function to check if a column contains numeric data
+    const isNumericColumn = (columnName) => {
+      return data.some(row => {
+        const value = row[columnName];
+        return !isNaN(parseFloat(value)) && isFinite(value);
+      });
+    };
+
+    // Helper function to check if a column contains categorical data
+    const isCategoricalColumn = (columnName) => {
+      const uniqueValues = new Set(data.map(row => row[columnName]));
+      return uniqueValues.size <= 10; // Consider it categorical if it has 10 or fewer unique values
+    };
+
+    // Generate score distribution chart
+    const scoreColumn = columns.find(col => 
+      col.toLowerCase().includes('score') || 
+      col.toLowerCase().includes('rating') ||
+      col.toLowerCase().includes('match')
+    );
+
+    if (scoreColumn && isNumericColumn(scoreColumn)) {
+      const ranges = {
+        "90-100": 0,
+        "80-89": 0,
+        "70-79": 0,
+        "60-69": 0,
+        "0-59": 0
+      };
+
+      data.forEach(row => {
+        const score = parseFloat(row[scoreColumn]);
+        if (score >= 90) ranges["90-100"]++;
+        else if (score >= 80) ranges["80-89"]++;
+        else if (score >= 70) ranges["70-79"]++;
+        else if (score >= 60) ranges["60-69"]++;
+        else ranges["0-59"]++;
+      });
+
+      charts.push({
+    type: "bar",
+    data: {
+          title: "Candidate Score Distribution",
+          categories: Object.keys(ranges),
+          yAxisTitle: "Number of Candidates",
+          series: [{
+            name: "Score Range",
+            data: Object.values(ranges)
+          }]
+        }
+      });
+    }
+
+    // Generate skills distribution chart
+    const skillsColumn = columns.find(col => 
+      col.toLowerCase().includes('skill') || 
+      col.toLowerCase().includes('expertise')
+    );
+
+    if (skillsColumn) {
+      const skillCounts = {};
+      data.forEach(row => {
+        const skills = row[skillsColumn]?.split(',').map(s => s.trim()) || [];
+        skills.forEach(skill => {
+          if (skill) {
+            skillCounts[skill] = (skillCounts[skill] || 0) + 1;
+          }
+        });
+      });
+
+      const topSkills = Object.entries(skillCounts)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 10)
+        .map(([skill, count]) => ({
+          name: skill,
+          y: count
+        }));
+
+      if (topSkills.length > 0) {
+        charts.push({
+    type: "pie",
+    data: {
+            title: "Top Skills Distribution",
+            seriesName: "Skills",
+            data: topSkills
+          }
+        });
+      }
+    }
+
+    // Generate experience level distribution
+    const experienceColumn = columns.find(col => 
+      col.toLowerCase().includes('experience') || 
+      col.toLowerCase().includes('years')
+    );
+
+    if (experienceColumn) {
+      const experienceRanges = {
+        "10+ years": 0,
+        "5-10 years": 0,
+        "3-5 years": 0,
+        "1-3 years": 0,
+        "< 1 year": 0
+      };
+
+      data.forEach(row => {
+        const exp = row[experienceColumn]?.toLowerCase() || '';
+        if (exp.includes('10') || exp.includes('ten')) experienceRanges["10+ years"]++;
+        else if (exp.includes('5') || exp.includes('five')) experienceRanges["5-10 years"]++;
+        else if (exp.includes('3') || exp.includes('three')) experienceRanges["3-5 years"]++;
+        else if (exp.includes('1') || exp.includes('one')) experienceRanges["1-3 years"]++;
+        else experienceRanges["< 1 year"]++;
+      });
+
+      charts.push({
+        type: "bar",
+    data: {
+          title: "Experience Level Distribution",
+          categories: Object.keys(experienceRanges),
+          yAxisTitle: "Number of Candidates",
+          series: [{
+            name: "Experience Range",
+            data: Object.values(experienceRanges)
+          }]
+        }
+      });
+    }
+
+    // Generate education level distribution
+    const educationColumn = columns.find(col => 
+      col.toLowerCase().includes('education') || 
+      col.toLowerCase().includes('degree')
+    );
+
+    if (educationColumn) {
+      const educationLevels = {};
+      data.forEach(row => {
+        const education = row[educationColumn]?.toLowerCase() || '';
+        if (education.includes('phd') || education.includes('doctorate')) {
+          educationLevels['PhD'] = (educationLevels['PhD'] || 0) + 1;
+        } else if (education.includes('master') || education.includes('ms') || education.includes('mba')) {
+          educationLevels['Masters'] = (educationLevels['Masters'] || 0) + 1;
+        } else if (education.includes('bachelor') || education.includes('bs') || education.includes('ba')) {
+          educationLevels['Bachelors'] = (educationLevels['Bachelors'] || 0) + 1;
+        } else {
+          educationLevels['Other'] = (educationLevels['Other'] || 0) + 1;
+        }
+      });
+
+      charts.push({
+        type: "pie",
+        data: {
+          title: "Education Level Distribution",
+          seriesName: "Education",
+          data: Object.entries(educationLevels).map(([level, count]) => ({
+            name: level,
+            y: count
+          }))
+        }
+      });
+    }
+
+    return charts;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#000000] p-6 flex items-center justify-center">
+        <div className="text-center">
+          <motion.div
+            animate={{
+              rotate: 360,
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "linear"
+            }}
+            className="w-16 h-16 border-4 border-[#FFFFFF] border-t-transparent rounded-full mx-auto mb-6"
+          />
+          <h2 className="text-2xl font-bold text-[#FFFFFF]">Loading Tables...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#000000] p-6 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-[#FFFFFF]">{error}</h2>
+          <button
+            onClick={fetchTableName}
+            className="mt-4 px-4 py-2 bg-[#FFFFFF] text-[#000000] rounded-lg hover:bg-[#FFFFFF]/90"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show table selection screen if no table is selected
+  if (!tableName) {
+    return (
+      <div className="min-h-screen bg-[#000000] p-6 flex items-center justify-center">
+        <div className="max-w-2xl w-full">
+          <h1 className="text-3xl font-bold text-[#FFFFFF] mb-8 text-center">Select a Table</h1>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {availableTables.map((table) => (
+              <motion.button
+                key={table}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => handleTableSelect(table)}
+                className="p-6 bg-[#000000] border border-[#808080]/20 rounded-lg hover:bg-[#FFFFFF]/5 text-left"
+              >
+                <h3 className="text-xl font-semibold text-[#FFFFFF] mb-2">{table}</h3>
+                <p className="text-[#808080]">Click to view insights</p>
+              </motion.button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state while fetching table data
+  if (!tableData) {
+    return (
+      <div className="min-h-screen bg-[#000000] p-6 flex items-center justify-center">
+        <div className="text-center">
+          <motion.div
+            animate={{
+              rotate: 360,
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "linear"
+            }}
+            className="w-16 h-16 border-4 border-[#FFFFFF] border-t-transparent rounded-full mx-auto mb-6"
+          />
+          <h2 className="text-2xl font-bold text-[#FFFFFF]">Loading Dashboard...</h2>
+        </div>
+      </div>
+    );
+  }
   
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
-        Insights Dashboard
-      </h1>
-      <InsightsDashboard charts={mockChartData} />
+    <div className="min-h-screen bg-[#000000] p-6">
+      <div className="flex justify-between items-center mb-8">
+        <div className="flex items-center gap-4">
+          <h1 className="text-3xl font-bold text-[#FFFFFF]">Insights Dashboard</h1>
+          <TableDropdown
+            tables={availableTables}
+            selectedTable={tableName}
+            onSelect={handleTableSelect}
+          />
+        </div>
+        <div className="flex gap-4">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-4 py-2 bg-[#FFFFFF] text-[#000000] rounded-lg hover:bg-[#FFFFFF]/90 flex items-center gap-2"
+            onClick={() => fetchTableData(tableName)}
+          >
+            <BarChart2 size={20} />
+            Refresh Data
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-4 py-2 bg-[#FFFFFF]/10 text-[#FFFFFF] rounded-lg hover:bg-[#FFFFFF]/20 flex items-center gap-2"
+            onClick={() => {
+              setTableName("");
+              setTableData(null);
+              setSelectedCandidate(null);
+            }}
+          >
+            Change Table
+          </motion.button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Dashboard */}
+        <div className="lg:col-span-2">
+          {tableData?.data ? (
+            <InsightsDashboard charts={generateCharts()} />
+          ) : (
+            <div className="bg-[#000000] border border-[#808080]/20 rounded-lg p-6">
+              <p className="text-[#808080]">No data available to display charts.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Candidate List */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold text-[#FFFFFF] mb-4">Candidates</h2>
+          <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
+            {tableData?.data ? (
+              tableData.data.map((candidate) => (
+                <motion.div
+                  key={candidate.name}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => fetchCandidateDetails(candidate.name)}
+                  className="bg-[#000000] border border-[#808080]/20 rounded-lg p-4 cursor-pointer hover:bg-[#FFFFFF]/5"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-[#FFFFFF]/10 rounded-full flex items-center justify-center">
+                      <User size={20} className="text-[#FFFFFF]" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-[#FFFFFF]">{candidate.name}</h3>
+                      <p className="text-sm text-[#808080]">{candidate.email}</p>
+                    </div>
+                    <div className="ml-auto">
+                      <span className="px-2 py-1 bg-[#FFFFFF]/10 text-[#FFFFFF] rounded text-sm">
+                        Score: {candidate.score}
+                      </span>
+                    </div>
+                  </div>
+                </motion.div>
+              ))
+            ) : (
+              <div className="bg-[#000000] border border-[#808080]/20 rounded-lg p-4">
+                <p className="text-[#808080]">No candidates available.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Candidate Details Modal */}
+      <AnimatePresence>
+        {selectedCandidate && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-[#000000]/95 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#000000] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-[#808080]/20"
+            >
+              <div className="p-8">
+                <div className="flex justify-between items-start mb-8">
+                  <div>
+                    <h2 className="text-3xl font-bold text-[#FFFFFF]">{selectedCandidate.name}</h2>
+                    <p className="text-[#808080] mt-2">{selectedCandidate.email}</p>
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.1, rotate: 90 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => setSelectedCandidate(null)}
+                    className="text-[#808080] hover:text-[#FFFFFF] transition-colors"
+                  >
+                    <X size={28} />
+                  </motion.button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <Card className="bg-[#000000] border-[#808080]/20">
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-semibold text-[#FFFFFF] mb-4">Contact Information</h3>
+                      <div className="space-y-2">
+                        <p className="text-[#808080]">Phone: {selectedCandidate.phone}</p>
+                        <p className="text-[#808080]">LinkedIn: {selectedCandidate.linkedin}</p>
+                        <p className="text-[#808080]">Address: {selectedCandidate.address}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-[#000000] border-[#808080]/20">
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-semibold text-[#FFFFFF] mb-4">Education</h3>
+                      <div className="space-y-2">
+                        <p className="text-[#808080]">{selectedCandidate.education}</p>
+                        <p className="text-[#808080]">Degree: {selectedCandidate.degree}</p>
+                        <p className="text-[#808080]">Major: {selectedCandidate.major}</p>
+                        <p className="text-[#808080]">GPA: {selectedCandidate.gpa}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-[#000000] border-[#808080]/20 col-span-2">
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-semibold text-[#FFFFFF] mb-4">Experience</h3>
+                      <div className="space-y-4">
+                        <p className="text-[#808080] whitespace-pre-line">{selectedCandidate.experience}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-[#000000] border-[#808080]/20 col-span-2">
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-semibold text-[#FFFFFF] mb-4">Skills</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedCandidate.skills?.split(",").map((skill, index) => (
+                          <span
+                            key={index}
+                            className="px-3 py-1 bg-[#FFFFFF]/10 text-[#FFFFFF] rounded-full text-sm"
+                          >
+                            {skill.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

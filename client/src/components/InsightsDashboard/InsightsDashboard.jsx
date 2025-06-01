@@ -7,31 +7,73 @@ const chartTypes = {
   bar: (data) => ({
     chart: {
       type: "bar",
+      backgroundColor: "transparent",
+      style: {
+        fontFamily: "Inter, sans-serif",
+      },
     },
     title: {
       text: data.title || "Bar Chart",
+      style: {
+        color: "#FFFFFF",
+      },
     },
     xAxis: {
       categories: data.categories,
       title: {
         text: null,
       },
+      labels: {
+        style: {
+          color: "#808080",
+        },
+      },
     },
     yAxis: {
       min: 0,
       title: {
         text: data.yAxisTitle || "Value",
+        style: {
+          color: "#808080",
+        },
       },
+      labels: {
+        style: {
+          color: "#808080",
+        },
+      },
+      gridLineColor: "#80808020",
     },
     series: data.series,
+    legend: {
+      itemStyle: {
+        color: "#808080",
+      },
+    },
+    plotOptions: {
+      bar: {
+        dataLabels: {
+          style: {
+            color: "#FFFFFF",
+          },
+        },
+      },
+    },
   }),
 
   pie: (data) => ({
     chart: {
       type: "pie",
+      backgroundColor: "transparent",
+      style: {
+        fontFamily: "Inter, sans-serif",
+      },
     },
     title: {
       text: data.title || "Pie Chart",
+      style: {
+        color: "#FFFFFF",
+      },
     },
     plotOptions: {
       pie: {
@@ -40,6 +82,9 @@ const chartTypes = {
         dataLabels: {
           enabled: true,
           format: "<b>{point.name}</b>: {point.percentage:.1f} %",
+          style: {
+            color: "#FFFFFF",
+          },
         },
       },
     },
@@ -50,31 +95,71 @@ const chartTypes = {
         data: data.data,
       },
     ],
+    legend: {
+      itemStyle: {
+        color: "#808080",
+      },
+    },
   }),
 
   line: (data) => ({
     chart: {
       type: "line",
+      backgroundColor: "transparent",
+      style: {
+        fontFamily: "Inter, sans-serif",
+      },
     },
     title: {
       text: data.title || "Line Chart",
+      style: {
+        color: "#FFFFFF",
+      },
     },
     xAxis: {
       categories: data.categories,
+      labels: {
+        style: {
+          color: "#808080",
+        },
+      },
     },
     yAxis: {
       title: {
         text: data.yAxisTitle || "Value",
+        style: {
+          color: "#808080",
+        },
       },
+      labels: {
+        style: {
+          color: "#808080",
+        },
+      },
+      gridLineColor: "#80808020",
     },
     series: data.series,
+    legend: {
+      itemStyle: {
+        color: "#808080",
+      },
+    },
+    plotOptions: {
+      line: {
+        dataLabels: {
+          style: {
+            color: "#FFFFFF",
+          },
+        },
+      },
+    },
   }),
 };
 
 const InsightsDashboard = (props) => {
   const { charts } = props;
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6 bg-white rounded-lg shadow-lg">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {charts.map((chartConfig, index) => {
         const getOptions = chartTypes[chartConfig.type];
         if (!getOptions) return null;
@@ -84,19 +169,19 @@ const InsightsDashboard = (props) => {
         return (
           <Card
             key={index}
-            className="rounded-2xl shadow-md hover:shadow-xl transition-shadow bg-gray-50 border border-gray-200"
+            className="rounded-2xl shadow-md hover:shadow-xl transition-shadow bg-[#000000] border border-[#808080]/20"
           >
             <CardContent className="p-4">
-              <h2 className="text-lg font-semibold text-gray-700 mb-4">
-            {title}
+              <h2 className="text-lg font-semibold text-[#FFFFFF] mb-4">
+                {title}
               </h2>
               <HighchartsReact
-            highcharts={Highcharts}
-            options={{
-              ...options,
-              title: { text: null }, // Remove the chart title
-              credits: { enabled: false }, // Hide Highcharts.com label
-            }}
+                highcharts={Highcharts}
+                options={{
+                  ...options,
+                  title: { text: null }, // Remove the chart title
+                  credits: { enabled: false }, // Hide Highcharts.com label
+                }}
               />
             </CardContent>
           </Card>
