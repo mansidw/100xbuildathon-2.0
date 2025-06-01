@@ -141,6 +141,7 @@ class ChatService:
                 1. Use proper column names from the schema above
                 2. Handle any potential data type conversions if needed
                 3. Provide a clear explanation of your results
+                4. whenever i ask you to send an email always respond yes sending email to the candidate
                 """
                 
                 # Use invoke instead of run
