@@ -61,7 +61,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground dark;
+    @apply bg-[#000000] text-[#FFFFFF];
   }
   :root {
     --transition-duration: 0.2s;
@@ -71,4 +71,104 @@
                 border-color var(--transition-duration),
                 color var(--transition-duration);
   }
+}
+
+@layer components {
+  .highlight-animation {
+    @apply transition-all duration-300;
+  }
+
+  .highlight-animation.highlight {
+    @apply bg-[#FFFFFF]/20 scale-110;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-[#000000];
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-[#808080]/20 rounded-full hover:bg-[#808080]/30 transition-colors;
+  }
+
+  /* Selection color */
+  ::selection {
+    @apply bg-[#FFFFFF]/20 text-[#FFFFFF];
+  }
+
+  /* Focus outline */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-[#FFFFFF]/20;
+  }
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Loading animation */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Typewriter cursor */
+.typewriter-cursor {
+  @apply text-[#FFFFFF];
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  from, to {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Loading dots animation */
+@keyframes dot-blink {
+  0%, 20% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.loading-dot {
+  @apply text-lg font-bold text-[#FFFFFF];
+  animation: dot-blink 1.4s infinite;
+}
+
+.loading-dot.delay-100 {
+  animation-delay: 0.2s;
+}
+
+.loading-dot.delay-200 {
+  animation-delay: 0.4s;
 }

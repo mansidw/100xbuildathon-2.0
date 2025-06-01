@@ -1,4 +1,6 @@
-import { Upload, FileText, Loader2 } from 'lucide-react';
+import { X, Upload, FileText, Users, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Typewriter } from 'react-simple-typewriter';
 
 const NewChatModal = ({
     isOpen,
@@ -12,105 +14,196 @@ const NewChatModal = ({
     candidatesFile,
     setCandidatesFile,
 }) => {
-    if (!isOpen) return null;
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onCreate();
+    };
+
+    const processingSteps = [
+        "Parsing job description...",
+        "Analyzing candidate data...",
+        "Building knowledge graph...",
+        "Preparing insights engine...",
+        "Initializing AI model..."
+    ];
 
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-gray-900 text-white rounded-xl p-6 w-full max-w-md mx-4 border border-gray-800">
-                <h3 className="text-xl font-bold mb-6">Create New Analysis</h3>
-
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Role Name</label>
-                        <input
-                            type="text"
-                            value={roleName}
-                            onChange={(e) => setRoleName(e.target.value)}
-                            placeholder="e.g., Software Engineer"
-                            className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/20 text-white placeholder-gray-500"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Upload Job Description (JD)</label>
-                        <div className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center hover:border-gray-600 transition-colors">
-                            <input
-                                type="file"
-                                accept=".pdf,.doc,.docx,.txt"
-                                onChange={(e) => setJdFile(e.target.files[0])}
-                                className="hidden"
-                                id="jd-upload"
-                            />
-                            <label htmlFor="jd-upload" className="cursor-pointer">
-                                {jdFile ? (
-                                    <div className="flex items-center justify-center gap-2 text-green-400">
-                                        <FileText size={20} />
-                                        <span>{jdFile.name}</span>
-                                    </div>
-                                ) : (
-                                    <div className="text-gray-400">
-                                        <Upload size={24} className="mx-auto mb-2" />
-                                        <p>Click to upload or drag and drop</p>
-                                        <p className="text-sm">Supported formats: PDF, DOC, DOCX, TXT</p>
-                                    </div>
-                                )}
-                            </label>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Upload Candidates Data</label>
-                        <div className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center hover:border-gray-600 transition-colors">
-                            <input
-                                type="file"
-                                accept=".xlsx,.xls,.csv"
-                                onChange={(e) => setCandidatesFile(e.target.files[0])}
-                                className="hidden"
-                                id="candidates-upload"
-                            />
-                            <label htmlFor="candidates-upload" className="cursor-pointer">
-                                {candidatesFile ? (
-                                    <div className="flex items-center justify-center gap-2 text-green-400">
-                                        <FileText size={20} />
-                                        <span>{candidatesFile.name}</span>
-                                    </div>
-                                ) : (
-                                    <div className="text-gray-400">
-                                        <Upload size={24} className="mx-auto mb-2" />
-                                        <p>Click to upload or drag and drop</p>
-                                        <p className="text-sm">Excel files (.xlsx, .xls, .csv)</p>
-                                    </div>
-                                )}
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex gap-3 mt-6">
-                    <button
-                        onClick={onClose}
-                        className="flex-1 px-4 py-2 bg-gray-800 text-white hover:bg-gray-700 rounded-lg transition-colors"
-                        disabled={isProcessing}
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-[#000000]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                >
+                    <motion.div
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.9, opacity: 0 }}
+                        className="bg-[#000000] rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-[#808080]/20"
                     >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={onCreate}
-                        disabled={!roleName || !jdFile || !candidatesFile || isProcessing}
-                        className="flex-1 px-4 py-2 bg-white text-black hover:bg-gray-100 disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center justify-center gap-2"
-                    >
-                        {isProcessing ? (
-                            <>
-                                <Loader2 size={16} className="animate-spin" />
-                                Processing...
-                            </>
-                        ) : (
-                            'Create & Process'
-                        )}
-                    </button>
-                </div>
-            </div>
-        </div>
+                        <div className="p-6">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold text-[#FFFFFF]">New Analysis</h2>
+                                <motion.button
+                                    whileHover={{ scale: 1.1, rotate: 90 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={onClose}
+                                    className="text-[#808080] hover:text-[#FFFFFF] transition-colors"
+                                >
+                                    <X size={24} />
+                                </motion.button>
+                            </div>
+
+                            {isProcessing ? (
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    className="py-12"
+                                >
+                                    <div className="text-center">
+                                        <motion.div
+                                            animate={{
+                                                rotate: 360,
+                                                scale: [1, 1.2, 1],
+                                            }}
+                                            transition={{
+                                                duration: 2,
+                                                repeat: Infinity,
+                                                ease: "linear"
+                                            }}
+                                            className="w-16 h-16 border-4 border-[#FFFFFF] border-t-transparent rounded-full mx-auto mb-8"
+                                        />
+                                        <h3 className="text-xl font-semibold text-[#FFFFFF] mb-6">
+                                            <Typewriter
+                                                words={processingSteps}
+                                                cursor
+                                                cursorStyle='_'
+                                                typeSpeed={50}
+                                                deleteSpeed={30}
+                                                loop={true}
+                                            />
+                                        </h3>
+                                        <div className="space-y-4">
+                                            {processingSteps.map((step, index) => (
+                                                <motion.div
+                                                    key={step}
+                                                    initial={{ opacity: 0, x: -20 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    transition={{ delay: index * 0.2 }}
+                                                    className="flex items-center gap-3"
+                                                >
+                                                    <motion.div
+                                                        animate={{
+                                                            scale: [1, 1.2, 1],
+                                                            opacity: [0.5, 1, 0.5],
+                                                        }}
+                                                        transition={{
+                                                            duration: 2,
+                                                            repeat: Infinity,
+                                                            delay: index * 0.2,
+                                                        }}
+                                                        className="w-2 h-2 bg-[#FFFFFF] rounded-full"
+                                                    />
+                                                    <span className="text-[#808080]">{step}</span>
+                                                </motion.div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            ) : (
+                                <motion.form
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    onSubmit={handleSubmit}
+                                    className="space-y-6"
+                                >
+                                    <div>
+                                        <label className="block text-sm font-medium text-[#808080] mb-2">
+                                            Role Name
+                                        </label>
+                                        <motion.input
+                                            whileFocus={{ scale: 1.02 }}
+                                            type="text"
+                                            value={roleName}
+                                            onChange={(e) => setRoleName(e.target.value)}
+                                            placeholder="e.g., Senior Frontend Developer"
+                                            className="w-full p-3 bg-[#000000] border border-[#808080]/20 rounded-lg text-[#FFFFFF] placeholder-[#808080] focus:outline-none focus:ring-2 focus:ring-[#008000]/20 focus:border-transparent"
+                                            required
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-[#808080] mb-2">
+                                            Job Description
+                                        </label>
+                                        <motion.div
+                                            whileHover={{ scale: 1.02 }}
+                                            className="relative"
+                                        >
+                                            <input
+                                                type="file"
+                                                accept=".pdf,.doc,.docx,.txt"
+                                                onChange={(e) => setJdFile(e.target.files[0])}
+                                                className="hidden"
+                                                id="jd-file"
+                                                required
+                                            />
+                                            <label
+                                                htmlFor="jd-file"
+                                                className="flex items-center gap-3 p-4 bg-[#000000] border border-[#808080]/20 rounded-lg cursor-pointer hover:bg-[#000000]/80 transition-colors"
+                                            >
+                                                <FileText size={20} className="text-[#808080]" />
+                                                <span className="text-[#FFFFFF]">
+                                                    {jdFile ? jdFile.name : 'Upload Job Description'}
+                                                </span>
+                                            </label>
+                                        </motion.div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-[#808080] mb-2">
+                                            Candidate Data
+                                        </label>
+                                        <motion.div
+                                            whileHover={{ scale: 1.02 }}
+                                            className="relative"
+                                        >
+                                            <input
+                                                type="file"
+                                                accept=".csv,.xlsx,.xls"
+                                                onChange={(e) => setCandidatesFile(e.target.files[0])}
+                                                className="hidden"
+                                                id="candidates-file"
+                                                required
+                                            />
+                                            <label
+                                                htmlFor="candidates-file"
+                                                className="flex items-center gap-3 p-4 bg-[#000000] border border-[#808080]/20 rounded-lg cursor-pointer hover:bg-[#000000]/80 transition-colors"
+                                            >
+                                                <Users size={20} className="text-[#808080]" />
+                                                <span className="text-[#FFFFFF]">
+                                                    {candidatesFile ? candidatesFile.name : 'Upload Candidate Data'}
+                                                </span>
+                                            </label>
+                                        </motion.div>
+                                    </div>
+
+                                    <motion.button
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                        type="submit"
+                                        className="w-full py-4 bg-[#FFFFFF] text-[#000000] font-medium rounded-lg hover:bg-[#FFFFFF]/90 transition-colors"
+                                    >
+                                        Start Analysis
+                                    </motion.button>
+                                </motion.form>
+                            )}
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
     );
 };
 

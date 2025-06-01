@@ -1,86 +1,118 @@
 import { User, Bot, AlertCircle, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { motion } from 'framer-motion';
+import { Typewriter } from 'react-simple-typewriter';
+import React from 'react';
 
 const ChatMessage = ({ message, isLoading }) => {
+    const isUser = message.type === 'user';
+    const isSystem = message.type === 'system';
+
     return (
-        <div
-            className={`flex gap-4 ${message.type === 'user' ? 'justify-end' : 'justify-start'
-                }`}
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`flex gap-4 ${isUser ? 'justify-end' : 'justify-start'}`}
         >
-            {message.type === 'ai' && (
-                <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Bot size={16} className="text-white" />
-                </div>
-            )}
-            {message.type === 'system' && (
-                <div className="w-8 h-8 bg-yellow-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-                    <AlertCircle size={16} className="text-yellow-500" />
-                </div>
-            )}
-            <div
-                className={`max-w-3xl p-4 rounded-2xl ${message.type === 'user'
-                    ? 'bg-white text-black'
-                    : message.type === 'system'
-                        ? 'bg-yellow-500/10 text-yellow-500'
-                        : 'bg-gray-800 text-gray-100'
+            {!isUser && (
+                <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 200, damping: 10 }}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        isSystem ? 'bg-[#FFFFFF]/10' : 'bg-[#FFFFFF]/10'
                     }`}
+                >
+                    {isSystem ? (
+                        <AlertCircle size={20} className="text-[#FFFFFF]" />
+                    ) : (
+                        <Bot size={20} className="text-[#FFFFFF]" />
+                    )}
+                </motion.div>
+            )}
+            <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 200, damping: 10 }}
+                className={`max-w-3xl p-6 rounded-2xl ${
+                    isUser
+                        ? 'bg-[#000000]/50 backdrop-blur-sm text-[#FFFFFF]'
+                        : isSystem
+                            ? 'bg-[#FFFFFF]/10 text-[#FFFFFF]'
+                            : 'bg-[#000000]/50 backdrop-blur-sm text-[#FFFFFF]'
+                }`}
             >
                 {message.isLoading ? (
-                    <div className="flex items-center gap-3">
-                        <Loader2 size={16} className="animate-spin" />
-                        <div>
-                            <div className="h-4 w-48 bg-gray-700 rounded animate-pulse mb-2"></div>
-                            <div className="h-4 w-32 bg-gray-700 rounded animate-pulse"></div>
-                        </div>
+                    <div className="flex items-center gap-1">
+                        <span className="loading-dot">.</span>
+                        <span className="loading-dot delay-100">.</span>
+                        <span className="loading-dot delay-200">.</span>
                     </div>
                 ) : (
                     <div className="prose prose-invert max-w-none">
                         <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
                             components={{
-                                // Style links
+                                p: ({ children }) => (
+                                    <motion.p
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.3 }}
+                                        className="text-[#FFFFFF]"
+                                    >
+                                        {children}
+                                    </motion.p>
+                                ),
                                 a: (props) => (
-                                    <a
+                                    <motion.a
                                         {...props}
-                                        className="text-blue-400 hover:text-blue-300 underline"
+                                        className="text-[#FFFFFF] hover:text-[#FFFFFF]/80 underline"
                                         target="_blank"
                                         rel="noopener noreferrer"
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
                                     />
                                 ),
-                                // Style code blocks
                                 code: (props) => (
-                                    <code
+                                    <motion.code
                                         {...props}
-                                        className="bg-black/30 rounded px-1 py-0.5 font-mono text-sm"
+                                        className="bg-[#000000] rounded px-1.5 py-0.5 font-mono text-sm text-[#FFFFFF]"
+                                        whileHover={{ scale: 1.02 }}
                                     />
                                 ),
-                                // Style code blocks with language
                                 pre: (props) => (
-                                    <pre
+                                    <motion.pre
                                         {...props}
-                                        className="bg-black/30 rounded-lg p-3 overflow-x-auto"
+                                        className="bg-[#000000] rounded-lg p-4 overflow-x-auto"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.3 }}
                                     />
                                 ),
-                                // Style tables
                                 table: (props) => (
-                                    <div className="overflow-x-auto">
+                                    <motion.div
+                                        className="overflow-x-auto"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.3 }}
+                                    >
                                         <table
                                             {...props}
                                             className="border-collapse table-auto w-full text-sm"
                                         />
-                                    </div>
+                                    </motion.div>
                                 ),
                                 th: (props) => (
                                     <th
                                         {...props}
-                                        className="border border-gray-600 px-4 py-2 text-left"
+                                        className="border border-[#808080]/20 px-4 py-2 text-left bg-[#000000]/50"
                                     />
                                 ),
                                 td: (props) => (
                                     <td
                                         {...props}
-                                        className="border border-gray-600 px-4 py-2"
+                                        className="border border-[#808080]/20 px-4 py-2"
                                     />
                                 ),
                             }}
@@ -89,15 +121,27 @@ const ChatMessage = ({ message, isLoading }) => {
                         </ReactMarkdown>
                     </div>
                 )}
-                <p className="text-xs opacity-70 mt-2">{message.timestamp}</p>
-            </div>
-            {message.type === 'user' && (
-                <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
-                    <User size={16} className="text-white" />
-                </div>
+                <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.7 }}
+                    transition={{ delay: 0.5 }}
+                    className="text-xs mt-3 text-[#808080]"
+                >
+                    {message.timestamp}
+                </motion.p>
+            </motion.div>
+            {isUser && (
+                <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 200, damping: 10 }}
+                    className="w-10 h-10 bg-[#FFFFFF]/10 rounded-full flex items-center justify-center flex-shrink-0"
+                >
+                    <User size={20} className="text-[#FFFFFF]" />
+                </motion.div>
             )}
-        </div>
+        </motion.div>
     );
 };
 
-export default ChatMessage; 
+export default React.memo(ChatMessage); 

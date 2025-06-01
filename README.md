@@ -15,6 +15,7 @@ A Flask-based backend service for a Hiring Copilot that leverages Large Language
 - [Development](#development)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
+- [Running with ngrok](#running-with-ngrok)
 
 ## Features
 
@@ -642,3 +643,21 @@ For issues and questions:
 - Check the troubleshooting section above
 - Review the Postman collection for usage examples
 - Open an issue in the repository
+
+## Running with ngrok
+
+To expose your local server to the internet using ngrok:
+
+1. Make sure you have ngrok installed and configured:
+   ```bash
+   pip install pyngrok
+   ```
+
+2. Run the server with ngrok:
+   ```bash
+   python server/run_with_ngrok.py
+   ```
+
+3. The script will output a public URL that you can use to access your API from anywhere.
+
+Note: The ngrok URL will change each time you restart the server unless you have a paid ngrok account.
