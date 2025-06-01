@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Typewriter } from 'react-simple-typewriter';
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const RecruiterChatInterface = () => {
   const {
@@ -34,6 +35,7 @@ const RecruiterChatInterface = () => {
     sendMessage
   } = useChat();
 
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [localMessage, setLocalMessage] = useState(''); // Local state for input
 
@@ -207,10 +209,20 @@ const RecruiterChatInterface = () => {
                 animate={{ y: 0, opacity: 1 }}
                 className="border-b border-[#808080]/20 p-6 bg-[#000000]/50 backdrop-blur-sm"
               >
-                <h2 className="text-2xl font-semibold text-[#FFFFFF]">{activeChat.title}</h2>
-                <p className="text-sm text-[#808080]">
-                  Analyzing data from {activeChat.fileName}
-                </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-semibold text-[#FFFFFF]">{activeChat.title}</h2>
+                    <p className="text-sm text-[#808080]">
+                      Analyzing data from {activeChat.fileName}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => navigate("/dashboard")}
+                    className="px-6 py-2 bg-[#FFFFFF] text-[#000000] hover:bg-[#FFFFFF]/90 rounded-lg transition-all duration-300 text-base font-medium shadow hover:shadow-lg"
+                  >
+                    View Insights
+                  </button>
+                </div>
               </motion.div>
 
               {/* Messages */}
