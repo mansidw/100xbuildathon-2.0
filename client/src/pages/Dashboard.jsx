@@ -84,23 +84,27 @@ const Dashboard = () => {
   const fetchTableName = async () => {
     try {
       setLoading(true);
-      // Use localhost for development, ngrok URL for production
-      const backendUrl = import.meta.env.PROD 
-        ? 'https://5a4e-45-127-45-47.ngrok-free.app'
-        : 'http://localhost:5000';
-        
-      const response = await axios.get(`${backendUrl}/gettables`);
+      const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/gettables`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+          'Accept': 'application/json'
+        }
+      });
       console.log("Tables response:", response.data);
       
-      if (response.data && Array.isArray(response.data.tables)) {
+      // Check if response has the expected format
+      if (response.data && response.data.tables) {
         // Filter out system tables and sort by timestamp (newest first)
         const userTables = response.data.tables
           .filter(tableName => !['rejected_candidates', 'candidates'].includes(tableName))
           .sort((a, b) => {
-            // Extract timestamps from table names
-            const timestampA = a.split('_').pop();
-            const timestampB = b.split('_').pop();
-            return parseInt(timestampB) - parseInt(timestampA);
+            // Extract timestamps from table names if they exist
+            const getTimestamp = (name) => {
+              const parts = name.split('_');
+              const lastPart = parts[parts.length - 1];
+              return !isNaN(lastPart) ? parseInt(lastPart) : 0;
+            };
+            return getTimestamp(b) - getTimestamp(a);
           });
         
         if (userTables.length > 0) {
@@ -132,11 +136,12 @@ const Dashboard = () => {
   const fetchTableData = async (table) => {
     try {
       setLoading(true);
-      const backendUrl = import.meta.env.PROD 
-        ? 'https://5a4e-45-127-45-47.ngrok-free.app'
-        : 'http://localhost:5000';
-        
-      const response = await axios.get(`${backendUrl}/insights?tableName=${table}`);
+      const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/insights?tableName=${table}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+          'Accept': 'application/json'
+        }
+      });
       setTableData(response.data);
       setError(null);
     } catch (err) {
@@ -149,11 +154,12 @@ const Dashboard = () => {
 
   const fetchCandidateDetails = async (name) => {
     try {
-      const backendUrl = import.meta.env.PROD 
-        ? 'https://5a4e-45-127-45-47.ngrok-free.app'
-        : 'http://localhost:5000';
-        
-      const response = await axios.get(`${backendUrl}/candidate/${encodeURIComponent(name)}`);
+      const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/candidate/${encodeURIComponent(name)}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+          'Accept': 'application/json'
+        }
+      });
       setSelectedCandidate(response.data);
     } catch (err) {
       console.error("Error fetching candidate details:", err);
