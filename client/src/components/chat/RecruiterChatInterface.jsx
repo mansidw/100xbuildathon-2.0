@@ -84,7 +84,7 @@ const RecruiterChatInterface = () => {
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-0">
+      <div className="flex-1 flex flex-col h-screen">
         <AnimatePresence mode="wait">
           {!activeChat ? (
             /* Welcome Screen */
@@ -201,13 +201,13 @@ const RecruiterChatInterface = () => {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="flex-1 flex flex-col"
+              className="flex-1 flex flex-col h-full"
             >
-              {/* Chat Header */}
+              {/* Chat Header - Fixed at top */}
               <motion.div
                 initial={{ y: -20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                className="border-b border-[#808080]/20 p-6 bg-[#000000]/50 backdrop-blur-sm"
+                className="border-b border-[#808080]/20 p-6 bg-[#000000]/50 backdrop-blur-sm sticky top-0 z-10"
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -217,7 +217,7 @@ const RecruiterChatInterface = () => {
                     </p>
                   </div>
                   <button
-                    onClick={() => navigate("/dashboard")}
+                    onClick={() => navigate(`/dashboard?table=${activeChat.tableName}`)}
                     className="px-6 py-2 bg-[#FFFFFF] text-[#000000] hover:bg-[#FFFFFF]/90 rounded-lg transition-all duration-300 text-base font-medium shadow hover:shadow-lg"
                   >
                     View Insights
@@ -225,8 +225,8 @@ const RecruiterChatInterface = () => {
                 </div>
               </motion.div>
 
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-6 h-0">
+              {/* Messages - Scrollable */}
+              <div className="flex-1 overflow-y-auto p-6">
                 <AnimatePresence>
                   {activeChat.messages.length === 0 ? (
                     <motion.div
@@ -261,7 +261,7 @@ const RecruiterChatInterface = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Input Area */}
+              {/* Input Area - Fixed at bottom */}
               <MemoizedInputArea
                 message={localMessage}
                 setMessage={setLocalMessage}
@@ -294,13 +294,13 @@ const RecruiterChatInterface = () => {
   );
 };
 
-// Create a memoized component for the input area
+// Update the MemoizedInputArea component
 const MemoizedInputArea = React.memo(({ message: localMessage, setMessage: setLocalMessage, handleKeyPress, handleSendMessage }) => {
   return (
     <motion.div
       initial={{ y: 20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="border-t border-[#808080]/20 p-6 bg-[#000000]/50 backdrop-blur-sm"
+      className="border-t border-[#808080]/20 p-6 bg-[#000000]/50 backdrop-blur-sm sticky bottom-0 z-10"
     >
       <div className="flex gap-3">
         <div className="flex-1 relative">

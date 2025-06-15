@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, X, BarChart2, ChevronDown } from "lucide-react";
 import axios from "axios";
+import { useSearchParams } from "react-router-dom";
 
 const TableDropdown = ({ tables, selectedTable, onSelect }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -33,8 +34,8 @@ const TableDropdown = ({ tables, selectedTable, onSelect }) => {
         className="px-4 py-2 bg-[#FFFFFF]/10 text-[#FFFFFF] rounded-lg hover:bg-[#FFFFFF]/20 flex items-center gap-2 min-w-[200px] justify-between"
       >
         <span className="truncate">{selectedTable || "Select Table"}</span>
-        <ChevronDown 
-          size={16} 
+        <ChevronDown
+          size={16}
           className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
@@ -54,9 +55,8 @@ const TableDropdown = ({ tables, selectedTable, onSelect }) => {
                   key={table}
                   type="button"
                   onClick={() => handleSelect(table)}
-                  className={`w-full px-4 py-2 text-left hover:bg-[#FFFFFF]/10 ${
-                    table === selectedTable ? 'bg-[#FFFFFF]/20' : ''
-                  }`}
+                  className={`w-full px-4 py-2 text-left hover:bg-[#FFFFFF]/10 ${table === selectedTable ? 'bg-[#FFFFFF]/20' : ''
+                    }`}
                 >
                   <span className="text-[#FFFFFF] truncate block">{table}</span>
                 </button>
@@ -76,10 +76,18 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [tableName, setTableName] = useState("");
   const [availableTables, setAvailableTables] = useState([]);
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     fetchTableName();
   }, []);
+
+  useEffect(() => {
+    const tableFromUrl = searchParams.get('table');
+    if (tableFromUrl && availableTables.includes(tableFromUrl)) {
+      handleTableSelect(tableFromUrl);
+    }
+  }, [searchParams, availableTables]);
 
   const fetchTableName = async () => {
     try {
@@ -91,7 +99,7 @@ const Dashboard = () => {
         }
       });
       console.log("Tables response:", response.data);
-      
+
       // Check if response has the expected format
       if (response.data && response.data.tables) {
         // Filter out system tables and sort by timestamp (newest first)
@@ -106,7 +114,7 @@ const Dashboard = () => {
             };
             return getTimestamp(b) - getTimestamp(a);
           });
-        
+
         if (userTables.length > 0) {
           setAvailableTables(userTables);
           setError(null);
@@ -188,8 +196,8 @@ const Dashboard = () => {
     };
 
     // Generate score distribution chart
-    const scoreColumn = columns.find(col => 
-      col.toLowerCase().includes('score') || 
+    const scoreColumn = columns.find(col =>
+      col.toLowerCase().includes('score') ||
       col.toLowerCase().includes('rating') ||
       col.toLowerCase().includes('match')
     );
@@ -213,8 +221,8 @@ const Dashboard = () => {
       });
 
       charts.push({
-    type: "bar",
-    data: {
+        type: "bar",
+        data: {
           title: "Candidate Score Distribution",
           categories: Object.keys(ranges),
           yAxisTitle: "Number of Candidates",
@@ -227,8 +235,8 @@ const Dashboard = () => {
     }
 
     // Generate skills distribution chart
-    const skillsColumn = columns.find(col => 
-      col.toLowerCase().includes('skill') || 
+    const skillsColumn = columns.find(col =>
+      col.toLowerCase().includes('skill') ||
       col.toLowerCase().includes('expertise')
     );
 
@@ -253,8 +261,8 @@ const Dashboard = () => {
 
       if (topSkills.length > 0) {
         charts.push({
-    type: "pie",
-    data: {
+          type: "pie",
+          data: {
             title: "Top Skills Distribution",
             seriesName: "Skills",
             data: topSkills
@@ -264,8 +272,8 @@ const Dashboard = () => {
     }
 
     // Generate experience level distribution
-    const experienceColumn = columns.find(col => 
-      col.toLowerCase().includes('experience') || 
+    const experienceColumn = columns.find(col =>
+      col.toLowerCase().includes('experience') ||
       col.toLowerCase().includes('years')
     );
 
@@ -289,7 +297,7 @@ const Dashboard = () => {
 
       charts.push({
         type: "bar",
-    data: {
+        data: {
           title: "Experience Level Distribution",
           categories: Object.keys(experienceRanges),
           yAxisTitle: "Number of Candidates",
@@ -302,8 +310,8 @@ const Dashboard = () => {
     }
 
     // Generate education level distribution
-    const educationColumn = columns.find(col => 
-      col.toLowerCase().includes('education') || 
+    const educationColumn = columns.find(col =>
+      col.toLowerCase().includes('education') ||
       col.toLowerCase().includes('degree')
     );
 
@@ -366,7 +374,7 @@ const Dashboard = () => {
         <div className="text-center max-w-md">
           <h2 className="text-2xl font-bold text-[#FFFFFF] mb-4">{error}</h2>
           <p className="text-[#808080] mb-6">
-            {error.includes("No tables found") 
+            {error.includes("No tables found")
               ? "You need to create a new analysis first. Go to the chat interface to start analyzing candidates."
               : "Please try again later or contact support if the issue persists."}
           </p>
@@ -442,7 +450,7 @@ const Dashboard = () => {
       </div>
     );
   }
-  
+
   return (
     <div className="min-h-screen bg-[#000000] p-6">
       <div className="flex justify-between items-center mb-8">
