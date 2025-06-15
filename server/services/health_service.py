@@ -1,7 +1,4 @@
 class HealthService:
     @staticmethod
     def check_health():
-        return {
-            'status': 'healthy',
-            'message': 'Server is running'
-        } 
+        return {"status": "healthy", "message": "Server is running"}
