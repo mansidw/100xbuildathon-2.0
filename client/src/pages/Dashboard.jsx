@@ -453,37 +453,47 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-[#000000] p-6">
-      <div className="flex justify-between items-center mb-8">
-        <div className="flex items-center gap-4">
-          <h1 className="text-3xl font-bold text-[#FFFFFF]">Insights Dashboard</h1>
-          <TableDropdown
-            tables={availableTables}
-            selectedTable={tableName}
-            onSelect={handleTableSelect}
-          />
-        </div>
-        <div className="flex gap-4">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="px-4 py-2 bg-[#FFFFFF] text-[#000000] rounded-lg hover:bg-[#FFFFFF]/90 flex items-center gap-2"
-            onClick={() => fetchTableData(tableName)}
-          >
-            <BarChart2 size={20} />
-            Refresh Data
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="px-4 py-2 bg-[#FFFFFF]/10 text-[#FFFFFF] rounded-lg hover:bg-[#FFFFFF]/20 flex items-center gap-2"
-            onClick={() => {
-              setTableName("");
-              setTableData(null);
-              setSelectedCandidate(null);
-            }}
-          >
-            Change Table
-          </motion.button>
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-4">
+            <h1 className="text-3xl font-bold text-[#FFFFFF]">Insights Dashboard</h1>
+            <TableDropdown
+              tables={availableTables}
+              selectedTable={tableName}
+              onSelect={handleTableSelect}
+            />
+          </div>
+          <div className="flex gap-4">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => window.location.href = '/chat'}
+              className="px-4 py-2 bg-[#FFFFFF]/10 text-[#FFFFFF] rounded-lg hover:bg-[#FFFFFF]/20 flex items-center gap-2"
+            >
+              Back to Home
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-4 py-2 bg-[#FFFFFF] text-[#000000] rounded-lg hover:bg-[#FFFFFF]/90 flex items-center gap-2"
+              onClick={() => fetchTableData(tableName)}
+            >
+              <BarChart2 size={20} />
+              Refresh Data
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-4 py-2 bg-[#FFFFFF]/10 text-[#FFFFFF] rounded-lg hover:bg-[#FFFFFF]/20 flex items-center gap-2"
+              onClick={() => {
+                setTableName("");
+                setTableData(null);
+                setSelectedCandidate(null);
+              }}
+            >
+              Change Table
+            </motion.button>
+          </div>
         </div>
       </div>
 
