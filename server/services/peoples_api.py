@@ -12,7 +12,7 @@ class PeoplesApi:
         Fetches Peoples data from People Data Labs
         """
         print("API key ", os.getenv('PEOPLES_API_KEY'))
-
+        
         PARAMS = {
             "query": elastic_query,
             "limit": 1000,  # Adjust limit as needed
@@ -22,8 +22,8 @@ class PeoplesApi:
         # Pass the parameters object to the Person Search API
         try:
             response = self.client.person.search(**PARAMS).json()
-
-            if response.get('status') == '200':
+            print("Response here", response)
+            if response.get('status') == 200:
                 data = response.get('data', [])
                 if not data:
                     return {"message": "No data found for the given query."}

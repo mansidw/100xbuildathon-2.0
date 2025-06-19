@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from services.chat_service import ChatService
 from services.insights_service import InsightsService
+from services.peoples_api import PeoplesApi
 import os
 import pandas as pd
 from werkzeug.utils import secure_filename
@@ -12,6 +13,7 @@ import sqlite3
 chat_bp = Blueprint('chat', __name__)
 chat_service = ChatService()
 insights_service = InsightsService()
+peoples_api = PeoplesApi()
 
 @chat_bp.route('/insights', methods=['GET'])
 def get_insights():
@@ -94,4 +96,61 @@ def get_tables():
         tables = chat_service.get_all_tables()
         return jsonify({"tables": tables})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500 
+        return jsonify({"error": str(e)}), 500
+
+@chat_bp.route('/chat/2', methods=['POST'])
+def chat_to_elastic():
+    try:
+        data = request.get_json()
+        prompt = data.get('prompt', '')
+        if not prompt:
+            return jsonify({'error': 'Missing prompt'}), 400
+
+        gemini_instruction = """
+You are an expert in Elasticsearch. Given the following user prompt, generate a JSON Elasticsearch query in this STRICT format only:
+
+{
+  "query": {
+    "bool": {
+        "must": [
+            {"term": {"location_country": "mexico"}},
+            {"term": {"job_title_role": "health"}},
+            {"exists": {"field": "phone_numbers"}}
+      ]
+    }
+  }
+}
+
+- Only return the JSON in the above format, filling in the query as needed based on the prompt.
+- Do not add any explanation or extra text.
+- If the prompt is empty, return the default query as above.
+
+Prompt: {prompt}
+"""
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        import os
+        import json
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",
+            google_api_key=os.getenv('GOOGLE_API_KEY'),
+            temperature=0
+        )
+        response = llm.invoke(gemini_instruction)
+        content = response.content if hasattr(response, 'content') else str(response)
+        if content.strip().startswith('```json'):
+            content = content.strip()[7:]
+        if content.strip().startswith('```'):
+            content = content.strip()[3:]
+        if content.strip().endswith('```'):
+            content = content.strip()[:-3]
+        content = content.strip()
+        try:
+            elastic_query = json.loads(content)
+        except Exception:
+            elastic_query = content
+        print('Elastic Query:', elastic_query)
+        # Call People Data Labs API with the elastic query
+        peoples_data = peoples_api.fetch_peoples_data(elastic_query)
+        return jsonify(peoples_data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500 
