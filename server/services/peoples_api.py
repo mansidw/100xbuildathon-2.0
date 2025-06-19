@@ -22,7 +22,7 @@ class PeoplesApi:
         # Pass the parameters object to the Person Search API
         try:
             response = self.client.person.search(**PARAMS).json()
-            print("Response here", response)
+            
             if response.get('status') == 200:
                 data = response.get('data', [])
                 if not data:

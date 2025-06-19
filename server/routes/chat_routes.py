@@ -108,7 +108,7 @@ def chat_to_elastic():
 
         gemini_instruction = """
 You are an expert in Elasticsearch. Given the following user prompt, generate a JSON Elasticsearch query in this STRICT format only:
-
+below is a example of the query format:
 {
   "query": {
     "bool": {
@@ -124,9 +124,12 @@ You are an expert in Elasticsearch. Given the following user prompt, generate a 
 - Only return the JSON in the above format, filling in the query as needed based on the prompt.
 - Do not add any explanation or extra text.
 - If the prompt is empty, return the default query as above.
-
-Prompt: {prompt}
+- note your context is the peoples datalabs Person schema for your fields
+Prompt: 
 """
+
+        gemini_instruction = gemini_instruction + prompt
+        
         from langchain_google_genai import ChatGoogleGenerativeAI
         import os
         import json
