@@ -6,7 +6,7 @@ const ChatSidebar = ({ chats, activeChat, onChatSelect, onNewChat }) => {
         <motion.div
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            className="w-80 bg-[#000000] border-r border-[#808080]/20 flex flex-col h-full sticky top-0"
+            className="w-80 bg-[#000000] border-r border-[#808080]/20 flex flex-col h-screen sticky left-0 top-0"
         >
             {/* Header */}
             <div className="p-4 border-b border-[#808080]/20">
@@ -33,11 +33,10 @@ const ChatSidebar = ({ chats, activeChat, onChatSelect, onNewChat }) => {
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={() => onChatSelect(chat)}
-                            className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                                activeChat?.id === chat.id
+                            className={`p-3 rounded-lg cursor-pointer transition-colors ${activeChat?.id === chat.id
                                     ? 'bg-[#FFFFFF]/20 text-[#FFFFFF]'
                                     : 'hover:bg-[#808080]/10 text-[#FFFFFF]'
-                            }`}
+                                }`}
                         >
                             <div className="flex items-center gap-3">
                                 <MessageSquare size={20} />
