@@ -2,6 +2,7 @@ import { X, FileText, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Typewriter } from 'react-simple-typewriter';
 import PropTypes from 'prop-types';
+import { useState } from 'react';
 
 const NewChatModal = ({
     isOpen,
@@ -15,9 +16,16 @@ const NewChatModal = ({
     candidatesFile,
     setCandidatesFile,
 }) => {
+    const [chatType, setChatType] = useState('database'); // 'database' or 'global'
+    const [globalChatName, setGlobalChatName] = useState('');
     const handleSubmit = (e) => {
         e.preventDefault();
-        onCreate();
+        if (chatType === 'global') {
+            if (!globalChatName.trim()) return;
+            onCreate({ chatType, globalChatName });
+        } else {
+            onCreate({ chatType });
+        }
     };
 
     const processingSteps = [
@@ -55,7 +63,23 @@ const NewChatModal = ({
                                     <X size={28} />
                                 </motion.button>
                             </div>
-
+                            {/* Chat type toggle */}
+                            <div className="flex gap-4 mb-8">
+                                <button
+                                    className={`px-4 py-2 rounded-lg font-semibold transition-colors ${chatType === 'database' ? 'bg-white text-black' : 'bg-[#222] text-[#aaa]'}`}
+                                    onClick={() => setChatType('database')}
+                                    type="button"
+                                >
+                                    Database Chat
+                                </button>
+                                <button
+                                    className={`px-4 py-2 rounded-lg font-semibold transition-colors ${chatType === 'global' ? 'bg-white text-black' : 'bg-[#222] text-[#aaa]'}`}
+                                    onClick={() => setChatType('global')}
+                                    type="button"
+                                >
+                                    Global Chat
+                                </button>
+                            </div>
                             {isProcessing ? (
                                 <motion.div
                                     initial={{ opacity: 0 }}
@@ -166,84 +190,103 @@ const NewChatModal = ({
                                     onSubmit={handleSubmit}
                                     className="space-y-8"
                                 >
-                                    <div>
-                                        <label className="block text-sm font-medium text-[#808080] mb-3">
-                                            Role Name
-                                        </label>
-                                        <motion.input
-                                            whileFocus={{ scale: 1.01 }}
-                                            type="text"
-                                            value={roleName}
-                                            onChange={(e) => setRoleName(e.target.value)}
-                                            placeholder="e.g., Senior Frontend Developer"
-                                            className="w-full p-4 bg-[#000000] border border-[#808080]/30 rounded-lg text-[#FFFFFF] placeholder-[#808080] focus:outline-none focus:ring-2 focus:ring-[#FFFFFF]/30 focus:border-transparent text-lg"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-[#808080] mb-3">
-                                            Job Description
-                                        </label>
-                                        <motion.div
-                                            whileHover={{ scale: 1.01 }}
-                                            className="relative"
-                                        >
-                                            <input
-                                                type="file"
-                                                accept=".pdf,.doc,.docx,.txt"
-                                                onChange={(e) => setJdFile(e.target.files[0])}
-                                                className="hidden"
-                                                id="jd-file"
-                                                required
-                                            />
-                                            <label
-                                                htmlFor="jd-file"
-                                                className="flex items-center gap-4 p-4 bg-[#000000] border border-[#808080]/30 rounded-lg cursor-pointer hover:bg-[#000000]/80 transition-colors text-lg"
-                                            >
-                                                <FileText size={24} className="text-[#808080]" />
-                                                <span className="text-[#FFFFFF]">
-                                                    {jdFile ? jdFile.name : 'Upload Job Description'}
-                                                </span>
-                                            </label>
-                                        </motion.div>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-[#808080] mb-3">
-                                            Candidate Data
-                                        </label>
-                                        <motion.div
-                                            whileHover={{ scale: 1.01 }}
-                                            className="relative"
-                                        >
-                                            <input
-                                                type="file"
-                                                accept=".csv,.xlsx,.xls"
-                                                onChange={(e) => setCandidatesFile(e.target.files[0])}
-                                                className="hidden"
-                                                id="candidates-file"
-                                                required
-                                            />
-                                            <label
-                                                htmlFor="candidates-file"
-                                                className="flex items-center gap-4 p-4 bg-[#000000] border border-[#808080]/30 rounded-lg cursor-pointer hover:bg-[#000000]/80 transition-colors text-lg"
-                                            >
-                                                <Users size={24} className="text-[#808080]" />
-                                                <span className="text-[#FFFFFF]">
-                                                    {candidatesFile ? candidatesFile.name : 'Upload Candidate Data'}
-                                                </span>
-                                            </label>
-                                        </motion.div>
-                                    </div>
-
+                                    {chatType === 'global' ? (
+                                        <>
+                                            <div>
+                                                <label className="block text-sm font-medium text-[#808080] mb-3">
+                                                    Chat Name
+                                                </label>
+                                                <motion.input
+                                                    whileFocus={{ scale: 1.01 }}
+                                                    type="text"
+                                                    value={globalChatName}
+                                                    onChange={e => setGlobalChatName(e.target.value)}
+                                                    placeholder="e.g., Global Talent Search"
+                                                    className="w-full p-4 bg-[#000000] border border-[#808080]/30 rounded-lg text-[#FFFFFF] placeholder-[#808080] focus:outline-none focus:ring-2 focus:ring-[#FFFFFF]/30 focus:border-transparent text-lg"
+                                                    required
+                                                />
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            {/* Database chat form fields (role, jd, candidates) */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-[#808080] mb-3">
+                                                    Role Name
+                                                </label>
+                                                <motion.input
+                                                    whileFocus={{ scale: 1.01 }}
+                                                    type="text"
+                                                    value={roleName}
+                                                    onChange={(e) => setRoleName(e.target.value)}
+                                                    placeholder="e.g., Senior Frontend Developer"
+                                                    className="w-full p-4 bg-[#000000] border border-[#808080]/30 rounded-lg text-[#FFFFFF] placeholder-[#808080] focus:outline-none focus:ring-2 focus:ring-[#FFFFFF]/30 focus:border-transparent text-lg"
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-[#808080] mb-3">
+                                                    Job Description
+                                                </label>
+                                                <motion.div
+                                                    whileHover={{ scale: 1.01 }}
+                                                    className="relative"
+                                                >
+                                                    <input
+                                                        type="file"
+                                                        accept=".pdf,.doc,.docx,.txt"
+                                                        onChange={(e) => setJdFile(e.target.files[0])}
+                                                        className="hidden"
+                                                        id="jd-file"
+                                                        required
+                                                    />
+                                                    <label
+                                                        htmlFor="jd-file"
+                                                        className="flex items-center gap-4 p-4 bg-[#000000] border border-[#808080]/30 rounded-lg cursor-pointer hover:bg-[#000000]/80 transition-colors text-lg"
+                                                    >
+                                                        <FileText size={24} className="text-[#808080]" />
+                                                        <span className="text-[#FFFFFF]">
+                                                            {jdFile ? jdFile.name : 'Upload Job Description'}
+                                                        </span>
+                                                    </label>
+                                                </motion.div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-[#808080] mb-3">
+                                                    Candidate Data
+                                                </label>
+                                                <motion.div
+                                                    whileHover={{ scale: 1.01 }}
+                                                    className="relative"
+                                                >
+                                                    <input
+                                                        type="file"
+                                                        accept=".csv,.xlsx,.xls"
+                                                        onChange={(e) => setCandidatesFile(e.target.files[0])}
+                                                        className="hidden"
+                                                        id="candidates-file"
+                                                        required
+                                                    />
+                                                    <label
+                                                        htmlFor="candidates-file"
+                                                        className="flex items-center gap-4 p-4 bg-[#000000] border border-[#808080]/30 rounded-lg cursor-pointer hover:bg-[#000000]/80 transition-colors text-lg"
+                                                    >
+                                                        <Users size={24} className="text-[#808080]" />
+                                                        <span className="text-[#FFFFFF]">
+                                                            {candidatesFile ? candidatesFile.name : 'Upload Candidate Data'}
+                                                        </span>
+                                                    </label>
+                                                </motion.div>
+                                            </div>
+                                        </>
+                                    )}
                                     <motion.button
                                         whileHover={{ scale: 1.02 }}
                                         whileTap={{ scale: 0.98 }}
                                         type="submit"
                                         className="w-full py-4 bg-[#FFFFFF] text-[#000000] font-medium rounded-lg hover:bg-[#FFFFFF]/90 transition-colors text-xl"
                                     >
-                                        Start Analysis
+                                        {chatType === 'global' ? 'Start Global Chat' : 'Start Analysis'}
                                     </motion.button>
                                 </motion.form>
                             )}

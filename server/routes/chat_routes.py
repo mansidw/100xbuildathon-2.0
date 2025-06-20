@@ -211,6 +211,25 @@ def chat_to_elastic():
         print("Elastic Query:", elastic_query)
         # Call People Data Labs API with the elastic query
         peoples_data = peoples_api.fetch_peoples_data(elastic_query)
-        return jsonify(peoples_data)
+
+        # --- Gemini summary for recruiter ---
+        summary_prompt = f"""
+        You are an expert recruiter assistant. Given the following global talent data search results, write a friendly, concise, and human-readable summary for a recruiter. Highlight the most relevant insights, trends, or interesting findings. If the data is empty, say so politely. Do not include raw JSON or code, just a readable summary.
+
+        Data:
+        {json.dumps(peoples_data)[:8000]}  # Truncate to avoid token overflow
+        """
+        summary_llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",
+            google_api_key=os.getenv("GOOGLE_API_KEY"),
+            temperature=0.2,
+        )
+        summary_response = summary_llm.invoke(summary_prompt)
+        summary_content = summary_response.content if hasattr(summary_response, "content") else str(summary_response)
+
+        return jsonify({
+            "summary": summary_content,
+            "raw": peoples_data
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500

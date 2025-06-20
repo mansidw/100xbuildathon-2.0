@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Typewriter } from "react-simple-typewriter";
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import PropTypes from 'prop-types';
 
 const RecruiterChatInterface = () => {
   const {
@@ -16,10 +17,7 @@ const RecruiterChatInterface = () => {
     activeChat,
     showNewChatModal,
     isProcessing,
-    message,
     roleName,
-    jobDescription,
-    file,
     jdFile,
     candidatesFile,
     messagesEndRef,
@@ -27,8 +25,6 @@ const RecruiterChatInterface = () => {
     setShowNewChatModal,
     setMessage,
     setRoleName,
-    setJobDescription,
-    setFile,
     setJdFile,
     setCandidatesFile,
     createNewChat,
@@ -312,7 +308,6 @@ const RecruiterChatInterface = () => {
                 handleKeyPress={handleKeyPress}
                 handleSendMessage={handleSendMessage}
                 disabled={isLoading || followupLoading}
-                tableName={activeChat?.tableName}
               />
             </motion.div>
           )}
@@ -327,7 +322,10 @@ const RecruiterChatInterface = () => {
           setJdFile(null);
           setCandidatesFile(null);
         }}
-        onCreate={createNewChat}
+        onCreate={(opts) => {
+          // opts: { chatType, globalPrompt }
+          createNewChat(opts);
+        }}
         isProcessing={isProcessing}
         roleName={roleName}
         setRoleName={setRoleName}
@@ -348,31 +346,7 @@ const MemoizedInputArea = React.memo(
     handleKeyPress,
     handleSendMessage,
     disabled,
-    tableName,
   }) => {
-    const [jobDesc, setJobDesc] = useState("");
-    const getJobDesc = async (table) => {
-      try {
-        console.log("in the function, ", table);
-        const response = await axios.get(
-          `${
-            import.meta.env.VITE_BACKEND_URL
-          }/get-job-description?tableName=${table}`,
-          {
-            headers: {
-              "ngrok-skip-browser-warning": "true",
-              Accept: "application/json",
-            },
-          }
-        );
-        console.log(response.data);
-        setJobDesc(response.data);
-        setError(null);
-      } catch (err) {
-        setError("Failed to fetch data");
-        console.error("Error fetching data:", err);
-      }
-    };
     return (
       <motion.div
         initial={{ y: 20, opacity: 0 }}
@@ -382,7 +356,7 @@ const MemoizedInputArea = React.memo(
         <div className="flex gap-3">
           <div className="flex items-center gap-4 w-full">
             <button
-              onClick={() => getJobDesc(tableName)}
+              onClick={() => {}}
               className="px-6 py-2 bg-[#FFFFFF] text-[#000000] hover:bg-[#FFFFFF]/90 rounded-lg transition-all duration-300 text-base font-medium shadow hover:shadow-lg whitespace-nowrap"
             >
               About Job
@@ -413,5 +387,14 @@ const MemoizedInputArea = React.memo(
     );
   }
 );
+
+MemoizedInputArea.displayName = 'MemoizedInputArea';
+MemoizedInputArea.propTypes = {
+  message: PropTypes.string.isRequired,
+  setMessage: PropTypes.func.isRequired,
+  handleKeyPress: PropTypes.func.isRequired,
+  handleSendMessage: PropTypes.func.isRequired,
+  disabled: PropTypes.bool.isRequired,
+};
 
 export default RecruiterChatInterface;

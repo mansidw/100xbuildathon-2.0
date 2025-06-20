@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { createNewChat, sendChatMessage, getTables, getChatHistory } from '../services/api';
+import { createNewChat, sendChatMessage, getTables, getChatHistory, sendGlobalChatMessage } from '../services/api';
 import { generateTableName } from '../config/constants';
 import { toast } from 'sonner';
 import posthog from 'posthog-js';
@@ -79,9 +79,27 @@ export const useChat = () => {
     loadTables();
   }, []);
 
-  const createNewChatSession = async () => {
+  const createNewChatSession = async (opts = {}) => {
+    if (opts.chatType === 'global') {
+      const { globalChatName } = opts;
+      if (!globalChatName) return;
+      // No loading animation, just create the chat with empty messages
+      const newChat = {
+        id: Date.now(),
+        title: globalChatName,
+        roleName: 'Global',
+        tableName: null,
+        type: 'global',
+        messages: [],
+        processed: true,
+        createdAt: new Date().toLocaleString(),
+      };
+      setChats(prev => [newChat, ...prev]);
+      setActiveChat(newChat);
+      setShowNewChatModal(false);
+      return;
+    }
     if (!roleName || !jdFile || !candidatesFile) return;
-
     setIsProcessing(true);
     const tableName = generateTableName(roleName);
     posthog.capture("create_new_chat", {
@@ -90,15 +108,12 @@ export const useChat = () => {
       buttonName: 'Create New Chat',   
  },
   });
-    
     // Show initial processing toast
     toast.info(`Processing ${candidatesFile.name} for ${roleName} position...`, {
       duration: 3000
     });
-    
     try {
       const result = await createNewChat(candidatesFile, jdFile, tableName);
-      
       const newChat = {
         id: Date.now(),
         title: roleName,
@@ -115,12 +130,9 @@ export const useChat = () => {
         processed: true,
         createdAt: new Date().toLocaleString()
       };
-      
       setChats(prev => [newChat, ...prev]);
       setActiveChat(newChat);
       setShowNewChatModal(false);
-      
-      // Show success toast with more details
       toast.success(`Successfully processed ${candidatesFile.name} for ${roleName} position. Ready to analyze!`, {
         duration: 4000
       });
@@ -139,14 +151,67 @@ export const useChat = () => {
 
   const sendMessage = async (messageText) => {
     if (!messageText.trim() || !activeChat || !activeChat.processed) return;
-
+    // If global chat, use sendGlobalChatMessage
+    if (activeChat.type === 'global') {
+      const userMessage = {
+        id: Date.now(),
+        type: 'user',
+        content: messageText,
+        timestamp: new Date().toLocaleTimeString(),
+      };
+      const loadingMessage = {
+        id: Date.now() + 1,
+        type: 'ai',
+        content: '',
+        isLoading: true,
+        timestamp: new Date().toLocaleTimeString(),
+      };
+      const updatedChat = {
+        ...activeChat,
+        messages: [...activeChat.messages, userMessage, loadingMessage],
+      };
+      setChats(prev => prev.map(chat =>
+        chat.id === activeChat.id ? updatedChat : chat
+      ));
+      setActiveChat(updatedChat);
+      try {
+        const response = await sendGlobalChatMessage(messageText);
+        const aiMessage = {
+          id: loadingMessage.id,
+          type: 'ai',
+          content: response.summary,
+          raw: response.raw,
+          isLoading: false,
+          timestamp: new Date().toLocaleTimeString(),
+        };
+        const finalChat = {
+          ...updatedChat,
+          messages: [...updatedChat.messages.slice(0, -1), aiMessage],
+        };
+        setChats(prev => prev.map(chat =>
+          chat.id === activeChat.id ? finalChat : chat
+        ));
+        setActiveChat(finalChat);
+        return;
+      } catch (error) {
+        console.error('Failed to get global chat response:', error);
+        const finalChat = {
+          ...updatedChat,
+          messages: updatedChat.messages.slice(0, -1),
+        };
+        setChats(prev => prev.map(chat =>
+          chat.id === activeChat.id ? finalChat : chat
+        ));
+        setActiveChat(finalChat);
+        throw error;
+      }
+    }
     const userMessage = {
         id: Date.now(),
         type: 'user',
         content: messageText,
         timestamp: new Date().toLocaleTimeString()
     };
-
     const loadingMessage = {
         id: Date.now() + 1,
         type: 'ai',
@@ -154,17 +219,14 @@ export const useChat = () => {
         isLoading: true,
         timestamp: new Date().toLocaleTimeString()
     };
-
     const updatedChat = {
         ...activeChat,
         messages: [...activeChat.messages, userMessage, loadingMessage]
     };
-
     setChats(prev => prev.map(chat => 
         chat.id === activeChat.id ? updatedChat : chat
     ));
     setActiveChat(updatedChat);
-
     try {
         const response = await sendChatMessage(activeChat.tableName, messageText);
         // response: { result, followups }
@@ -176,12 +238,10 @@ export const useChat = () => {
             isLoading: false,
             timestamp: new Date().toLocaleTimeString()
         };
-
         const finalChat = {
             ...updatedChat,
             messages: [...updatedChat.messages.slice(0, -1), aiMessage]
         };
-
         setChats(prev => prev.map(chat => 
             chat.id === activeChat.id ? finalChat : chat
         ));
@@ -194,7 +254,6 @@ export const useChat = () => {
             ...updatedChat,
             messages: updatedChat.messages.slice(0, -1)
         };
-        
         setChats(prev => prev.map(chat => 
             chat.id === activeChat.id ? finalChat : chat
         ));
