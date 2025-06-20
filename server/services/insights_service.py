@@ -11,6 +11,7 @@ class InsightsService:
         self.connection_url = os.getenv('CONNECTION_URL')
         self.connection = None
         self._parse_connection_url()
+        self._ensure_users_table()
 
     def _parse_connection_url(self):
         try:
@@ -168,3 +169,20 @@ class InsightsService:
 
     def __del__(self):
         self.close_connection()
+
+    def _ensure_users_table(self):
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    company_name TEXT NOT NULL,
+                    user_id TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL
+                )
+            ''')
+            conn.commit()
+            cursor.close()
+        except Exception as e:
+            raise Exception(f"Error creating users table: {str(e)}")

@@ -1,0 +1,14 @@
+[Unit]
+Description=Ngrok Flask Application
+After=network.target
+
+[Service]
+User=$USER
+WorkingDirectory=/home/$USER/projects/100xbuildathon-2.0/server
+Environment="PATH=/home/$USER/projects/100xbuildathon-2.0/server/venv/bin"
+ExecStart=/home/$USER/projects/100xbuildathon-2.0/server/venv/bin/python run_with_ngrok.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target 
