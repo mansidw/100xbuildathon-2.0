@@ -17,6 +17,9 @@ export const useChat = () => {
   const [jdFile, setJdFile] = useState(null);
   const [candidatesFile, setCandidatesFile] = useState(null);
 
+  // Helper for global chat history
+  const GLOBAL_CHAT_PREFIX = 'global_chat_history_';
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -79,22 +82,74 @@ export const useChat = () => {
     loadTables();
   }, []);
 
+  // Fix: Only update messages if not already loaded
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (activeChat && activeChat.type !== 'global' && activeChat.tableName && localStorage.getItem('user_id')) {
+        // Only fetch if messages are empty or only system message
+        if (!activeChat.messages || activeChat.messages.length === 0 || (activeChat.messages.length === 1 && activeChat.messages[0].type === 'system')) {
+          try {
+            const chatsArr = await getChatHistory(localStorage.getItem('user_id'), activeChat.tableName);
+            // chatsArr is an array of [question, answer] pairs
+            const messages = [];
+            chatsArr.forEach(([question, answer], idx) => {
+              messages.push({
+                id: `${activeChat.tableName}-q-${idx}`,
+                type: 'user',
+                content: question,
+                timestamp: ''
+              });
+              messages.push({
+                id: `${activeChat.tableName}-a-${idx}`,
+                type: 'ai',
+                content: answer,
+                timestamp: ''
+              });
+            });
+            setChats(prev => prev.map(chat =>
+              chat.tableName === activeChat.tableName ? { ...chat, messages } : chat
+            ));
+            setActiveChat(prev => prev && prev.tableName === activeChat.tableName ? { ...prev, messages } : prev);
+          } catch {/* ignore */}
+        }
+      }
+    };
+    fetchHistory();
+    // eslint-disable-next-line
+  }, [activeChat && activeChat.tableName, activeChat && activeChat.type]);
+
+  // Global chat: store and fetch from localStorage only
+  const loadGlobalChatHistory = async (chatName) => {
+    try {
+      const data = localStorage.getItem(GLOBAL_CHAT_PREFIX + chatName);
+      if (data) return JSON.parse(data);
+    } catch {/* ignore */}
+    return [];
+  };
+
+  const saveGlobalChatHistory = async (chatName, messages) => {
+    try {
+      localStorage.setItem(GLOBAL_CHAT_PREFIX + chatName, JSON.stringify(messages));
+    } catch {/* ignore */}
+  };
+
   const createNewChatSession = async (opts = {}) => {
     if (opts.chatType === 'global') {
       const { globalChatName } = opts;
       if (!globalChatName) return;
-      // No loading animation, just create the chat with empty messages
+      // Load previous messages if any (from backend or localStorage)
+      const previousMessages = await loadGlobalChatHistory(globalChatName);
       const newChat = {
         id: Date.now(),
         title: globalChatName,
         roleName: 'Global',
         tableName: null,
         type: 'global',
-        messages: [],
+        messages: previousMessages,
         processed: true,
         createdAt: new Date().toLocaleString(),
       };
-      setChats(prev => [newChat, ...prev]);
+      setChats(prev => [newChat, ...prev.filter(c => c.title !== globalChatName)]);
       setActiveChat(newChat);
       setShowNewChatModal(false);
       return;
@@ -262,40 +317,12 @@ export const useChat = () => {
     }
   };
 
-  // Fetch chat history when activeChat changes
+  // Save global chat history on message update
   useEffect(() => {
-    const fetchHistory = async () => {
-      if (activeChat && activeChat.tableName && localStorage.getItem('user_id')) {
-        try {
-          const chatsArr = await getChatHistory(localStorage.getItem('user_id'), activeChat.tableName);
-          // chatsArr is an array of [question, answer] pairs
-          const messages = [];
-          chatsArr.forEach(([question, answer], idx) => {
-            messages.push({
-              id: `${activeChat.tableName}-q-${idx}`,
-              type: 'user',
-              content: question,
-              timestamp: ''
-            });
-            messages.push({
-              id: `${activeChat.tableName}-a-${idx}`,
-              type: 'ai',
-              content: answer,
-              timestamp: ''
-            });
-          });
-          setChats(prev => prev.map(chat =>
-            chat.tableName === activeChat.tableName ? { ...chat, messages } : chat
-          ));
-          setActiveChat(prev => prev ? { ...prev, messages } : prev);
-        } catch (e) {
-          // Optionally handle error
-        }
-      }
-    };
-    fetchHistory();
-    // eslint-disable-next-line
-  }, [activeChat && activeChat.tableName]);
+    if (activeChat && activeChat.type === 'global') {
+      saveGlobalChatHistory(activeChat.title, activeChat.messages);
+    }
+  }, [activeChat && activeChat.type === 'global' && activeChat.messages]);
 
   return {
     chats,

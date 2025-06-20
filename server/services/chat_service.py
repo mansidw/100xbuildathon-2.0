@@ -480,7 +480,6 @@ class ChatService:
 
     def process_new_chat(self, df, jd_text, table_name):
         try:
-
             print("Step 1: Analyzing job description to determine required columns...")
             columns_response = litellm.completion(
                 model="gemini/gemini-2.0-flash",
@@ -528,6 +527,16 @@ class ChatService:
 
             try:
                 cursor = connection.cursor()
+
+                # Ensure private.jobDesc table exists
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS private.jobDesc (
+                        id SERIAL PRIMARY KEY,
+                        table_name TEXT NOT NULL,
+                        jd_content TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
 
                 cursor.execute(f'DROP TABLE IF EXISTS "{table_name}"')
 

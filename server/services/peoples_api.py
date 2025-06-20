@@ -1,5 +1,6 @@
 import os
 from peopledatalabs import PDLPY
+import traceback
 
 class PeoplesApi:
     def __init__(self):
@@ -30,10 +31,11 @@ class PeoplesApi:
                 print("Data fetched successfully - ", data)
                 return data
             else:
-                raise ValueError(f"Error fetching data")
+                raise ValueError(f"Error fetching data: {response}")
         except Exception as e:
-            print(f"Error fetching data: {e}")
-            return {"error": str(e)}
+            tb_str = traceback.format_exc()
+            print(f"Error fetching data from People Data Labs: {e}\n{tb_str}")
+            return {"error": f"API Error: {e}", "traceback": tb_str}
             
 
 
