@@ -56,8 +56,11 @@ export const sendChatMessage = async (tableName, query) => {
             throw new Error('Failed to send message');
         }
         const data = await response.json();
-        // data.result (string), data.followups (array)
-        return data;
+        // Handle both {result, followups} and {result} (canned_response)
+        return {
+            result: data.result,
+            followups: data.followups
+        };
     } catch (error) {
         console.error('Error sending message:', error);
         throw error;

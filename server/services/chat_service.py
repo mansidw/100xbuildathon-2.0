@@ -212,6 +212,7 @@ class ChatService:
             print(
                 "------------------------STAGE 0 QUERY REPHRASER------------------------"
             )
+            print()
 
             # now checking the intent of the query to route it appropritely to the user
             intent = self.detect_intent(rephrased_query)
@@ -263,26 +264,26 @@ class ChatService:
                     Your job is to:
                     1. **Write and execute a SQL query** to accurately answer the user's question using the schema.
                     2. Present the **answer in a professional, clear, and human-readable format**, ideally structured in:
-                    - **Summary headers**
-                    - **Bullet points** or **tables** (if the data has multiple rows or categories)
-                    - Add brief **interpretation/explanation** of the data in simple terms.
-                    3. If the question involves candidate availability, communication status, or next steps, **answer conversationally** like an assistant helping an HR person.
-                    4. If the question is about contacting or emailing the candidate, respond with:
-                    👉 “Yes, sending email to the candidate.”
+                        - **Summary headers**
+                        - **Bullet points** or **tables** (if the data has multiple rows or categories)
+                        - Add brief **interpretation/explanation** of the data in simple terms.
+                    3. If the question involves candidate availability, communication status, or next steps, **answer conversationally** like an assistant helping an HR person.                    
 
                     Please format the final answer like this:
                     ---
-                    **🔍 Answer Summary**
-                    A one-line headline of the answer
+                    **🔍 Result**
+                    The natural language response obtained from the data, here also include the reason/logic behind the answer being given, like mentioning the source or why a particular candidate is more apt etc, this would help the HR make decisions in a more informed manner since the proofs and logic etc can be verified from the data source as well.
 
                     **📊 Data Overview**
                     Table or bullet points showing the SQL result
 
-                    **🧠 Interpretation**
-                    Plain-English explanation of what this data means
-
+                    **Conclusion**
+                    A final conclusion of the query
                     ---
-                    Only include sections that make sense for the result. Be brief but informative.
+
+                    IMPORTANT GUIDELINES  :
+                        a. Only include sections that make sense for the result. Be brief but informative.
+                        b. The user using this application is an HR so make sure not to use technical terms in the response, keep it easy flowing and understandable.
                     """
 
                     # Use invoke instead of run
@@ -540,6 +541,10 @@ class ChatService:
                 """
                 print(f"Debug: CREATE TABLE SQL: {create_table_sql}")
                 cursor.execute(create_table_sql)
+                cursor.execute(
+                    "INSERT INTO private.jobDesc (table_name, jd_content) VALUES (%s, %s)",
+                    (table_name, jd_text),
+                )
                 connection.commit()
                 print(f"Table {table_name} created successfully")
 
@@ -1013,7 +1018,7 @@ class ChatService:
         prompt = f"""
         You are an HR assistant. Given the following user request, do two things:
         1. Extract the **candidate's full name** mentioned in the sentence.
-        2. Based on the intent, **compose a formal, professional email** from an HR to the candidate.
+        2. Based on the intent, **compose a formal, professional email** from an HR to the candidate (do not leave placeholders in the generated mail make it a generic one which does not require explicit names of companies etc, only use the name of the candidate to make it sound personalised).
         3. Also suggest a relevant subject for the mail
 
         Guidelines for the email:
@@ -1150,3 +1155,57 @@ class ChatService:
             return {
                 "canned_response": f"Could not send the calendar event! Some error occured."
             }
+
+    def get_job_description(self, table_name):
+        try:
+            connection = self._get_db_connection()
+            cursor = connection.cursor()
+
+            cursor.execute(
+                f"""
+                SELECT jd_content 
+                FROM private.jobDesc 
+                WHERE table_name = %s
+                """,
+                (table_name,),
+            )
+            jd_data = cursor.fetchall()
+
+            prompt = f"""
+                You are an AI assistant that summarizes job descriptions into concise, point-wise highlights.
+
+                Given the following job description, extract only the most important and relevant features about the role.
+
+                Instructions:
+                - Write the output as a clear, bullet-point list
+                - Focus on key details such as:
+                    - Job role and responsibilities
+                    - Required skills and technologies
+                    - Experience level and qualifications
+                    - Location or remote flexibility (if mentioned)
+                    - Any unique perks or company culture highlights
+                - Do NOT copy full sentences or unnecessary filler text
+                - Keep each point short and to the point
+
+                Job Description:
+                \"\"\"{jd_data}\"\"\"
+
+                Now return the summary as bullet points:
+            """
+
+            # tables = [row[0] for row in jd_data]
+            response = litellm.completion(
+                model="gemini/gemini-2.0-flash",
+                messages=[{"role": "user", "content": prompt}],
+                api_key=os.getenv("GOOGLE_API_KEY"),
+            )
+
+            raw_output = response.choices[0].message.content.strip()
+
+            cursor.close()
+            connection.close()
+
+            return raw_output
+
+        except Exception as e:
+            raise Exception(f"Error getting job description: {str(e)}")
