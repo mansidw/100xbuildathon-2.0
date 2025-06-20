@@ -38,6 +38,7 @@ const RecruiterChatInterface = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [localMessage, setLocalMessage] = useState(''); // Local state for input
+  const [followupLoading, setFollowupLoading] = useState(false);
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -46,18 +47,21 @@ const RecruiterChatInterface = () => {
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!localMessage.trim()) return;
-
-    const currentMessage = localMessage;
-    setLocalMessage(''); // Clear local input immediately
-    setMessage(''); // Also clear the state in useChat
-
+  const handleSendMessage = async (msg) => {
+    const text = typeof msg === 'string' ? msg : localMessage;
+    if (!text.trim()) return;
+    setIsLoading(true);
+    setFollowupLoading(true);
+    setLocalMessage('');
+    setMessage('');
     try {
-      await sendMessage(currentMessage);
+      await sendMessage(text);
     } catch (error) {
       toast.error('Failed to send message');
       console.error('Error sending message:', error);
+    } finally {
+      setIsLoading(false);
+      setFollowupLoading(false);
     }
   };
 
@@ -87,13 +91,6 @@ const RecruiterChatInterface = () => {
 
   return (
     <div className="flex h-screen bg-[#000000] font-['Inter'] overflow-hidden">
-      {/* Logout Button */}
-      <button
-        onClick={handleLogout}
-        className="absolute top-4 right-4 z-50 px-4 py-2 bg-primary text-primary-foreground rounded-lg shadow hover:bg-primary/90 transition"
-      >
-        Logout
-      </button>
       <ChatSidebar
         chats={chats}
         activeChat={activeChat}
@@ -110,8 +107,15 @@ const RecruiterChatInterface = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="flex-1 flex items-center justify-center"
+              className="flex-1 flex items-center justify-center relative"
             >
+              {/* Logout button in top right for welcome screen */}
+              <button
+                onClick={handleLogout}
+                className="absolute top-6 right-6 px-4 py-2 bg-primary text-primary-foreground rounded-lg shadow hover:bg-primary/90 transition"
+              >
+                Logout
+              </button>
               <div className="text-center max-w-md">
                 <motion.div
                   initial={{ scale: 0 }}
@@ -228,18 +232,28 @@ const RecruiterChatInterface = () => {
                 className="border-b border-[#808080]/20 p-6 bg-[#000000]/50 backdrop-blur-sm sticky top-0 z-10"
               >
                 <div className="flex items-center justify-between">
+                  {/* Left: Title and subtitle */}
                   <div>
                     <h2 className="text-2xl font-semibold text-[#FFFFFF]">{activeChat.title}</h2>
                     <p className="text-sm text-[#808080]">
                       Analyzing data from {activeChat.fileName}
                     </p>
                   </div>
-                  <button
-                    onClick={() => navigate(`/dashboard?table=${activeChat.tableName}`)}
-                    className="px-6 py-2 bg-[#FFFFFF] text-[#000000] hover:bg-[#FFFFFF]/90 rounded-lg transition-all duration-300 text-base font-medium shadow hover:shadow-lg"
-                  >
-                    View Insights
-                  </button>
+                  {/* Right: Buttons */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => navigate(`/dashboard?table=${activeChat.tableName}`)}
+                      className="px-6 py-2 bg-[#FFFFFF] text-[#000000] hover:bg-[#FFFFFF]/90 rounded-lg transition-all duration-300 text-base font-medium shadow hover:shadow-lg"
+                    >
+                      View Insights
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="px-4 py-2 bg-primary text-primary-foreground rounded-lg shadow hover:bg-primary/90 transition"
+                    >
+                      Logout
+                    </button>
+                  </div>
                 </div>
               </motion.div>
 
@@ -270,6 +284,7 @@ const RecruiterChatInterface = () => {
                           <ChatMessage
                             message={message}
                             isLoading={message.isLoading}
+                            onFollowup={followupLoading ? undefined : handleSendMessage}
                           />
                         </motion.div>
                       ))}
@@ -285,6 +300,7 @@ const RecruiterChatInterface = () => {
                 setMessage={setLocalMessage}
                 handleKeyPress={handleKeyPress}
                 handleSendMessage={handleSendMessage}
+                disabled={isLoading || followupLoading}
               />
             </motion.div>
           )}
@@ -313,7 +329,7 @@ const RecruiterChatInterface = () => {
 };
 
 // Update the MemoizedInputArea component
-const MemoizedInputArea = React.memo(({ message: localMessage, setMessage: setLocalMessage, handleKeyPress, handleSendMessage }) => {
+const MemoizedInputArea = React.memo(({ message: localMessage, setMessage: setLocalMessage, handleKeyPress, handleSendMessage, disabled }) => {
   return (
     <motion.div
       initial={{ y: 20, opacity: 0 }}
@@ -330,13 +346,14 @@ const MemoizedInputArea = React.memo(({ message: localMessage, setMessage: setLo
             className="w-full p-4 pr-12 bg-[#000000] text-[#FFFFFF] border border-[#808080]/20 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-[#FFFFFF]/20 focus:border-transparent placeholder-[#808080]"
             rows={1}
             style={{ minHeight: '56px' }}
+            disabled={disabled}
           />
         </div>
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={handleSendMessage}
-          disabled={!localMessage.trim()}
+          disabled={!localMessage.trim() || disabled}
           className="px-4 py-4 bg-[#FFFFFF] text-[#000000] hover:bg-[#FFFFFF]/90 disabled:bg-[#808080]/20 disabled:text-[#808080] disabled:cursor-not-allowed rounded-xl transition-all duration-300"
         >
           <Send size={20} />

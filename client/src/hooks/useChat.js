@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { createNewChat, sendChatMessage, getTables } from '../services/api';
+import { createNewChat, sendChatMessage, getTables, getChatHistory } from '../services/api';
 import { generateTableName } from '../config/constants';
 import { toast } from 'sonner';
 import posthog from 'posthog-js';
@@ -167,11 +167,12 @@ export const useChat = () => {
 
     try {
         const response = await sendChatMessage(activeChat.tableName, messageText);
-        
+        // response: { result, followups }
         const aiMessage = {
             id: loadingMessage.id,
             type: 'ai',
-            content: response,
+            content: response.result,
+            followups: response.followups,
             isLoading: false,
             timestamp: new Date().toLocaleTimeString()
         };
@@ -185,6 +186,7 @@ export const useChat = () => {
             chat.id === activeChat.id ? finalChat : chat
         ));
         setActiveChat(finalChat);
+        return response.followups;
     } catch (error) {
         console.error('Failed to get response:', error);
         // Remove loading message on error
@@ -200,6 +202,41 @@ export const useChat = () => {
         throw error;
     }
   };
+
+  // Fetch chat history when activeChat changes
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (activeChat && activeChat.tableName && localStorage.getItem('user_id')) {
+        try {
+          const chatsArr = await getChatHistory(localStorage.getItem('user_id'), activeChat.tableName);
+          // chatsArr is an array of [question, answer] pairs
+          const messages = [];
+          chatsArr.forEach(([question, answer], idx) => {
+            messages.push({
+              id: `${activeChat.tableName}-q-${idx}`,
+              type: 'user',
+              content: question,
+              timestamp: ''
+            });
+            messages.push({
+              id: `${activeChat.tableName}-a-${idx}`,
+              type: 'ai',
+              content: answer,
+              timestamp: ''
+            });
+          });
+          setChats(prev => prev.map(chat =>
+            chat.tableName === activeChat.tableName ? { ...chat, messages } : chat
+          ));
+          setActiveChat(prev => prev ? { ...prev, messages } : prev);
+        } catch (e) {
+          // Optionally handle error
+        }
+      }
+    };
+    fetchHistory();
+    // eslint-disable-next-line
+  }, [activeChat && activeChat.tableName]);
 
   return {
     chats,

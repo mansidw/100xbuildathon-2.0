@@ -49,19 +49,15 @@ export const sendChatMessage = async (tableName, query) => {
                 ...commonHeaders,
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                tableName,
-                query,
-            }),
+            body: JSON.stringify({ tableName, query, user_id: localStorage.getItem('user_id') }),
             ...commonOptions,
         });
-
         if (!response.ok) {
             throw new Error('Failed to send message');
         }
-
         const data = await response.json();
-        return data.result;
+        // data.result (string), data.followups (array)
+        return data;
     } catch (error) {
         console.error('Error sending message:', error);
         throw error;
@@ -128,6 +124,26 @@ export const loginUser = async (user_id, password) => {
             throw new Error(data.error || 'Login failed');
         }
         return data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const getChatHistory = async (user_id, tableName) => {
+    try {
+        const response = await fetch(`${BACKEND_URL}/get-chats?user_id=${encodeURIComponent(user_id)}&tableName=${encodeURIComponent(tableName)}`, {
+            method: 'GET',
+            headers: {
+                ...commonHeaders,
+                'Content-Type': 'application/json',
+            },
+            ...commonOptions,
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to fetch chat history');
+        }
+        return data.chats;
     } catch (error) {
         throw error;
     }

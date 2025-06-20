@@ -13,7 +13,7 @@ const Login = () => {
 
     useEffect(() => {
         if (localStorage.getItem('user_id')) {
-            navigate('/dashboard');
+            navigate('/chat');
         }
     }, [navigate]);
 
@@ -24,7 +24,7 @@ const Login = () => {
         try {
             await loginUser(user_id, password);
             localStorage.setItem('user_id', user_id);
-            navigate('/dashboard');
+            navigate('/chat');
         } catch (err) {
             setError(err.message);
         } finally {
