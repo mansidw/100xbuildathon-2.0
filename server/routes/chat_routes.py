@@ -144,6 +144,16 @@ def get_tables():
         return jsonify({"error": str(e)}), 500
 
 
+@chat_bp.route("/get-job-description", methods=["GET"])
+def get_jobDesc():
+    try:
+        table_name = request.args.get("tableName")
+        jobDesc = chat_service.get_job_description(table_name)
+        return jsonify({"job_desc": jobDesc})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @chat_bp.route("/chat/2", methods=["POST"])
 def chat_to_elastic():
     try:

@@ -1,14 +1,14 @@
-import { Send, Bot } from 'lucide-react';
-import useChat from '../../hooks/useChat';
-import ChatSidebar from './ChatSidebar';
-import ChatMessage from './ChatMessage';
-import NewChatModal from './NewChatModal';
-import { useState, useEffect } from 'react';
-import toast from 'react-hot-toast';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Typewriter } from 'react-simple-typewriter';
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Send, Bot } from "lucide-react";
+import useChat from "../../hooks/useChat";
+import ChatSidebar from "./ChatSidebar";
+import ChatMessage from "./ChatMessage";
+import NewChatModal from "./NewChatModal";
+import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
+import { motion, AnimatePresence } from "framer-motion";
+import { Typewriter } from "react-simple-typewriter";
+import React from "react";
+import { useNavigate } from "react-router-dom";
 
 const RecruiterChatInterface = () => {
   const {
@@ -32,33 +32,33 @@ const RecruiterChatInterface = () => {
     setJdFile,
     setCandidatesFile,
     createNewChat,
-    sendMessage
+    sendMessage,
   } = useChat();
 
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [localMessage, setLocalMessage] = useState(''); // Local state for input
+  const [localMessage, setLocalMessage] = useState(""); // Local state for input
   const [followupLoading, setFollowupLoading] = useState(false);
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
   };
 
   const handleSendMessage = async (msg) => {
-    const text = typeof msg === 'string' ? msg : localMessage;
+    const text = typeof msg === "string" ? msg : localMessage;
     if (!text.trim()) return;
     setIsLoading(true);
     setFollowupLoading(true);
-    setLocalMessage('');
-    setMessage('');
+    setLocalMessage("");
+    setMessage("");
     try {
       await sendMessage(text);
     } catch (error) {
-      toast.error('Failed to send message');
-      console.error('Error sending message:', error);
+      toast.error("Failed to send message");
+      console.error("Error sending message:", error);
     } finally {
       setIsLoading(false);
       setFollowupLoading(false);
@@ -68,10 +68,10 @@ const RecruiterChatInterface = () => {
   // Add highlight animation effect
   useEffect(() => {
     const interval = setInterval(() => {
-      const elements = document.querySelectorAll('.highlight-animation');
+      const elements = document.querySelectorAll(".highlight-animation");
       elements.forEach((el) => {
-        el.classList.add('highlight');
-        setTimeout(() => el.classList.remove('highlight'), 1000);
+        el.classList.add("highlight");
+        setTimeout(() => el.classList.remove("highlight"), 1000);
       });
     }, 5000);
 
@@ -79,14 +79,14 @@ const RecruiterChatInterface = () => {
   }, []);
 
   useEffect(() => {
-    if (!localStorage.getItem('user_id')) {
-      navigate('/login');
+    if (!localStorage.getItem("user_id")) {
+      navigate("/login");
     }
   }, [navigate]);
 
   const handleLogout = () => {
-    localStorage.removeItem('user_id');
-    navigate('/login');
+    localStorage.removeItem("user_id");
+    navigate("/login");
   };
 
   return (
@@ -132,9 +132,9 @@ const RecruiterChatInterface = () => {
                   className="text-4xl font-bold mb-4 text-[#FFFFFF]"
                 >
                   <Typewriter
-                    words={['Hire AI']}
+                    words={["Hire AI"]}
                     cursor
-                    cursorStyle='_'
+                    cursorStyle="_"
                     typeSpeed={70}
                     deleteSpeed={50}
                   />
@@ -145,7 +145,8 @@ const RecruiterChatInterface = () => {
                   transition={{ delay: 0.4 }}
                   className="text-[#808080] mb-8 text-lg"
                 >
-                  Upload candidate data and get intelligent insights to make better hiring decisions.
+                  Upload candidate data and get intelligent insights to make
+                  better hiring decisions.
                 </motion.p>
                 <motion.button
                   initial={{ opacity: 0, y: 20 }}
@@ -177,7 +178,7 @@ const RecruiterChatInterface = () => {
                   transition={{
                     duration: 2,
                     repeat: Infinity,
-                    ease: "linear"
+                    ease: "linear",
                   }}
                   className="w-16 h-16 border-4 border-[#FFFFFF] border-t-transparent rounded-full mx-auto mb-6"
                 />
@@ -195,7 +196,8 @@ const RecruiterChatInterface = () => {
                   className="space-y-4"
                 >
                   <p className="text-[#808080] text-lg mb-2">
-                    Analyzing {activeChat.fileName} for {activeChat.roleName} position
+                    Analyzing {activeChat.fileName} for {activeChat.roleName}{" "}
+                    position
                   </p>
                   <div className="flex flex-col gap-2">
                     <motion.div
@@ -234,7 +236,9 @@ const RecruiterChatInterface = () => {
                 <div className="flex items-center justify-between">
                   {/* Left: Title and subtitle */}
                   <div>
-                    <h2 className="text-2xl font-semibold text-[#FFFFFF]">{activeChat.title}</h2>
+                    <h2 className="text-2xl font-semibold text-[#FFFFFF]">
+                      {activeChat.title}
+                    </h2>
                     <p className="text-sm text-[#808080]">
                       Analyzing data from {activeChat.fileName}
                     </p>
@@ -242,7 +246,9 @@ const RecruiterChatInterface = () => {
                   {/* Right: Buttons */}
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => navigate(`/dashboard?table=${activeChat.tableName}`)}
+                      onClick={() =>
+                        navigate(`/dashboard?table=${activeChat.tableName}`)
+                      }
                       className="px-6 py-2 bg-[#FFFFFF] text-[#000000] hover:bg-[#FFFFFF]/90 rounded-lg transition-all duration-300 text-base font-medium shadow hover:shadow-lg"
                     >
                       View Insights
@@ -267,9 +273,12 @@ const RecruiterChatInterface = () => {
                       className="text-center py-12"
                     >
                       <Bot size={48} className="mx-auto mb-4 text-[#808080]" />
-                      <p className="text-[#FFFFFF] mb-2 text-lg">Ready to analyze your data!</p>
+                      <p className="text-[#FFFFFF] mb-2 text-lg">
+                        Ready to analyze your data!
+                      </p>
                       <p className="text-sm text-[#808080]">
-                        Ask questions about candidate insights, skills analysis, or hiring recommendations.
+                        Ask questions about candidate insights, skills analysis,
+                        or hiring recommendations.
                       </p>
                     </motion.div>
                   ) : (
@@ -284,7 +293,9 @@ const RecruiterChatInterface = () => {
                           <ChatMessage
                             message={message}
                             isLoading={message.isLoading}
-                            onFollowup={followupLoading ? undefined : handleSendMessage}
+                            onFollowup={
+                              followupLoading ? undefined : handleSendMessage
+                            }
                           />
                         </motion.div>
                       ))}
@@ -301,6 +312,7 @@ const RecruiterChatInterface = () => {
                 handleKeyPress={handleKeyPress}
                 handleSendMessage={handleSendMessage}
                 disabled={isLoading || followupLoading}
+                tableName={activeChat?.tableName}
               />
             </motion.div>
           )}
@@ -311,7 +323,7 @@ const RecruiterChatInterface = () => {
         isOpen={showNewChatModal}
         onClose={() => {
           setShowNewChatModal(false);
-          setRoleName('');
+          setRoleName("");
           setJdFile(null);
           setCandidatesFile(null);
         }}
@@ -329,38 +341,77 @@ const RecruiterChatInterface = () => {
 };
 
 // Update the MemoizedInputArea component
-const MemoizedInputArea = React.memo(({ message: localMessage, setMessage: setLocalMessage, handleKeyPress, handleSendMessage, disabled }) => {
-  return (
-    <motion.div
-      initial={{ y: 20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      className="border-t border-[#808080]/20 p-6 bg-[#000000]/50 backdrop-blur-sm sticky bottom-0 z-10"
-    >
-      <div className="flex gap-3">
-        <div className="flex-1 relative">
-          <textarea
-            value={localMessage}
-            onChange={(e) => setLocalMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Ask about candidate insights, skills analysis, or hiring recommendations..."
-            className="w-full p-4 pr-12 bg-[#000000] text-[#FFFFFF] border border-[#808080]/20 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-[#FFFFFF]/20 focus:border-transparent placeholder-[#808080]"
-            rows={1}
-            style={{ minHeight: '56px' }}
-            disabled={disabled}
-          />
-        </div>
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={handleSendMessage}
-          disabled={!localMessage.trim() || disabled}
-          className="px-4 py-4 bg-[#FFFFFF] text-[#000000] hover:bg-[#FFFFFF]/90 disabled:bg-[#808080]/20 disabled:text-[#808080] disabled:cursor-not-allowed rounded-xl transition-all duration-300"
-        >
-          <Send size={20} />
-        </motion.button>
-      </div>
-    </motion.div>
-  );
-});
+const MemoizedInputArea = React.memo(
+  ({
+    message: localMessage,
+    setMessage: setLocalMessage,
+    handleKeyPress,
+    handleSendMessage,
+    disabled,
+    tableName,
+  }) => {
+    const [jobDesc, setJobDesc] = useState("");
+    const getJobDesc = async (table) => {
+      try {
+        console.log("in the function, ", table);
+        const response = await axios.get(
+          `${
+            import.meta.env.VITE_BACKEND_URL
+          }/get-job-description?tableName=${table}`,
+          {
+            headers: {
+              "ngrok-skip-browser-warning": "true",
+              Accept: "application/json",
+            },
+          }
+        );
+        console.log(response.data);
+        setJobDesc(response.data);
+        setError(null);
+      } catch (err) {
+        setError("Failed to fetch data");
+        console.error("Error fetching data:", err);
+      }
+    };
+    return (
+      <motion.div
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="border-t border-[#808080]/20 p-6 bg-[#000000]/50 backdrop-blur-sm sticky bottom-0 z-10"
+      >
+        <div className="flex gap-3">
+          <div className="flex items-center gap-4 w-full">
+            <button
+              onClick={() => getJobDesc(tableName)}
+              className="px-6 py-2 bg-[#FFFFFF] text-[#000000] hover:bg-[#FFFFFF]/90 rounded-lg transition-all duration-300 text-base font-medium shadow hover:shadow-lg whitespace-nowrap"
+            >
+              About Job
+            </button>
+            <textarea
+              value={localMessage}
+              onChange={(e) => setLocalMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Ask about candidate insights, skills analysis, or hiring recommendations..."
+              className="flex-1 p-4 pr-12 bg-[#000000] text-[#FFFFFF] border border-[#808080]/20 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-[#FFFFFF]/20 focus:border-transparent placeholder-[#808080]"
+              rows={1}
+              style={{ minHeight: "56px" }}
+              disabled={disabled}
+            />
+          </div>
 
-export default RecruiterChatInterface; 
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleSendMessage}
+            disabled={!localMessage.trim() || disabled}
+            className="px-4 py-4 bg-[#FFFFFF] text-[#000000] hover:bg-[#FFFFFF]/90 disabled:bg-[#808080]/20 disabled:text-[#808080] disabled:cursor-not-allowed rounded-xl transition-all duration-300"
+          >
+            <Send size={20} />
+          </motion.button>
+        </div>
+      </motion.div>
+    );
+  }
+);
+
+export default RecruiterChatInterface;
