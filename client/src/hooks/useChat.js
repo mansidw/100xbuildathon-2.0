@@ -116,7 +116,14 @@ export const useChat = () => {
     };
     fetchHistory();
     // eslint-disable-next-line
-  }, [activeChat && activeChat.tableName, activeChat && activeChat.type]);
+  }, [activeChat?.tableName, activeChat?.type]);
+
+  // Save global chat history to localStorage whenever it changes for the active chat
+  useEffect(() => {
+    if (activeChat && activeChat.type === 'global' && activeChat.messages.length > 0) {
+      saveGlobalChatHistory(activeChat.title, activeChat.messages);
+    }
+  }, [activeChat, activeChat?.messages]);
 
   // Global chat: store and fetch from localStorage only
   const loadGlobalChatHistory = async (chatName) => {
@@ -247,18 +254,20 @@ export const useChat = () => {
           chat.id === activeChat.id ? finalChat : chat
         ));
         setActiveChat(finalChat);
-        return;
+        return; // Early return for global chat
       } catch (error) {
-        console.error('Failed to get global chat response:', error);
-        const finalChat = {
+        console.error('Error in global chat:', error);
+        toast.error('Failed to get response from AI');
+        // Remove loading message on error
+        const errorChat = {
           ...updatedChat,
           messages: updatedChat.messages.slice(0, -1),
         };
         setChats(prev => prev.map(chat =>
-          chat.id === activeChat.id ? finalChat : chat
+          chat.id === activeChat.id ? errorChat : chat
         ));
-        setActiveChat(finalChat);
-        throw error;
+        setActiveChat(errorChat);
+        return; // Early return
       }
     }
     const userMessage = {
@@ -316,13 +325,6 @@ export const useChat = () => {
         throw error;
     }
   };
-
-  // Save global chat history on message update
-  useEffect(() => {
-    if (activeChat && activeChat.type === 'global') {
-      saveGlobalChatHistory(activeChat.title, activeChat.messages);
-    }
-  }, [activeChat && activeChat.type === 'global' && activeChat.messages]);
 
   return {
     chats,
