@@ -226,7 +226,7 @@ class ChatService:
             if intent == "gmail":
                 return self.send_mail_to_candidates(rephrased_query)
             elif intent == "calendar":
-                return self.create_calendar_event()
+                return self.create_calendar_event(rephrased_query)
             elif intent == "sql":
                 try:
                     cursor.execute(
@@ -974,7 +974,14 @@ class ChatService:
 
                 # Check if table has name column
                 if "name" in columns:
-                    cursor.execute(f'SELECT * FROM "{table}" WHERE name = %s', (name,))
+                    # cursor.execute(f'SELECT * FROM "{table}" WHERE name = %s', (name,))
+                    cursor.execute(
+                        f"""
+                            SELECT * FROM "{table}"
+                            WHERE name ILIKE %s
+                        """,
+                        (f"%{name}%",),
+                    )
                     result = cursor.fetchone()
 
                     if result:
@@ -1001,65 +1008,145 @@ class ChatService:
                 connection.close()
             raise Exception(f"Error getting candidate details: {str(e)}")
 
-    def send_mail_to_candidates(self, query):
-        # tools = toolset.get_tools(actions=[Action.GMAIL_SEND_EMAIL])
-        tools = toolset.execute_action(
-            action=Action.GMAIL_SEND_EMAIL,
-            params={
-                "body": "Hi mansi here",
-                "recipient_email": "mansi.dwivedi@spit.ac.in",
-            },
+    def send_mail_to_candidates(self, rephrased_query):
+        # Step 1: Compose prompt to extract name + draft email
+        prompt = f"""
+        You are an HR assistant. Given the following user request, do two things:
+        1. Extract the **candidate's full name** mentioned in the sentence.
+        2. Based on the intent, **compose a formal, professional email** from an HR to the candidate.
+        3. Also suggest a relevant subject for the mail
+
+        Guidelines for the email:
+        - Use a clear subject line based on the context (e.g., "Interview Confirmation", "Next Steps", etc.)
+        - Begin with a proper salutation (e.g., "Dear [Candidate Name],")
+        - Keep the tone corporate, respectful, and friendly
+        - Close with a polite HR signature (e.g., "Warm regards, HR Team")
+
+        Return your output strictly in this JSON format:
+        {{
+            "name": "<Candidate Full Name>",
+            "content": "<Full email body including subject and salutation>",
+            "subject: "<Relevant subject for the mail>"
+        }}
+
+        User Request:
+        \"\"\"{rephrased_query}\"\"\"
+        """
+
+        # Step 2: Get response from LLM
+        response = litellm.completion(
+            model="gemini/gemini-2.0-flash",
+            messages=[{"role": "user", "content": prompt}],
+            api_key=os.getenv("GOOGLE_API_KEY"),
         )
-        print("Action completed")
-        return tools
-        # task = query
 
-        # messages = [
-        #     {
-        #         "role": "system",
-        #         "content": "You are a helpful assistant that can use tools.",
-        #     },
-        #     {"role": "user", "content": task},
-        # ]
+        raw_output = response.choices[0].message.content.strip()
+        raw_output = raw_output.replace("```json", "").replace("```", "").strip()
+        print("LLM Email Composer Raw Output:", raw_output)
 
-        # agent = litellm.create_assistants(
-        #     custom_llm_provider="openai",
-        #     model="gemini/gemini-2.0-flash",
-        #     api_key=os.getenv("GOOGLE_API_KEY"),
-        #     tools=tools,
-        #     instructions="You are a helpful assistant that can use tools.",
-        # )
-        # new_thread = litellm.create_thread(
-        #     custom_llm_provider="openai",
-        #     messages=[{"role": "user", "content": "Hey, could you send an email"}],  # type: ignore
-        # )
-        # assistant_id = agent.data[0].id
-        # response = litellm.run_thread(
-        #     custom_llm_provider="openai",
-        #     thread_id=new_thread.id,
-        #     assistant_id=assistant_id,
-        # )
+        # Step 3: Safely parse JSON
+        try:
+            import json
 
-        # print(response)
+            email_payload = json.loads(raw_output)
+            candidate_name = email_payload["name"]
+            candidate_details = self.get_candidate_details_by_name(candidate_name)
+            if "email" in candidate_details:
+                try:
+                    toolset.execute_action(
+                        action=Action.GMAIL_SEND_EMAIL,
+                        params={
+                            "body": email_payload["content"],
+                            "recipient_email": candidate_details["email"],
+                            "subject": email_payload["subject"],
+                        },
+                    )
+                    print("Mail sent")
+                    return {
+                        "canned_response": f"The email was successfully sent to {candidate_details['email']}"
+                    }
+                except Exception as e:
+                    print("Mail could not be sent! - ", e)
+                    # return {"canned_response":f"The email was successfully sent to {candidate_details['email']}"}
+                    return {"canned_response": f"The email could not be sent!"}
 
-        # return response
+            else:
+                return {"canned_response": f"The email of the candidate not found."}
+        except Exception as e:
+            print("Error parsing LLM email JSON:", e)
+            email_payload = {
+                "name": "Unknown",
+                "content": "Sorry, failed to generate email content. Please rephrase the request.",
+            }
+            return {"canned_response": f"Could not send the mail! Some error occured."}
 
-        # response = litellm.completion(
-        #     model="gemini/gemini-2.0-flash",
-        #     messages=messages,
-        #     api_key=os.getenv("GOOGLE_API_KEY"),
-        #     tools=tools,  # The tools we prepared earlier
-        #     tool_choice="auto",
-        # )
-        # print(f"LiteLLM Response: {response}")
+    def create_calendar_event(self, rephrased_query):
+        prompt = f"""
+            You are a smart assistant helping HR professionals schedule events in Google Calendar.
 
-        # output_content = response.choices[0].message.content
-        # # response = client.chat.completions.create(
-        # #     model="gpt-4o-mini",  # Or another capable model
-        # #     messages=messages,
-        # #     tools=tools,  # The tools we prepared earlier
-        # #     tool_choice="auto",  # Let the LLM decide whether to use a tool
-        # # )
-        # result = toolset.handle_tool_calls(response)
-        # print(result)
-        # return result
+            From the following request, extract:
+            1. The full name of the candidate.
+            2. The date and time of the meeting in the format: "YYYY-MM-DDTHH:MM:SS"
+            - If the time is not mentioned, default to 00:00:00.
+            3. A professional and descriptive event title based on the query.
+
+            Respond ONLY in this JSON format:
+            {{
+                "name": "<Candidate Full Name>",
+                "datetime": "<YYYY-MM-DDTHH:MM:SS>",
+                "event_title": "<Descriptive event name>"
+            }}
+
+            User Request:
+            \"\"\"{rephrased_query}\"\"\"
+            """
+
+        try:
+            response = litellm.completion(
+                model="gemini/gemini-2.0-flash",
+                messages=[{"role": "user", "content": prompt}],
+                api_key=os.getenv("GOOGLE_API_KEY"),
+            )
+
+            raw_output = response.choices[0].message.content.strip()
+            raw_output = raw_output.replace("```json", "").replace("```", "").strip()
+            print("LLM Calendar Event Raw Output:", raw_output)
+
+            import json
+
+            event_payload = json.loads(raw_output)
+            candidate_name = event_payload["name"]
+            candidate_details = self.get_candidate_details_by_name(candidate_name)
+            if "email" in candidate_details:
+                try:
+                    toolset.execute_action(
+                        action=Action.GOOGLECALENDAR_CREATE_EVENT,
+                        params={
+                            # "create_meeting_room": True,
+                            "attendees": [candidate_details["email"]],
+                            "summary": event_payload["event_title"],
+                            "start_datetime": event_payload["datetime"],
+                        },
+                    )
+                    print("Calendar event sent")
+                    return {
+                        "canned_response": f"The calendar event was successfully created and sent to {candidate_details['email']}"
+                    }
+                except Exception as e:
+                    print("Calendar event could not be sent! - ", e)
+                    # return {"canned_response":f"The email was successfully sent to {candidate_details['email']}"}
+                    return {"canned_response": f"The calendar event could not be sent!"}
+            else:
+                return {"canned_response": f"The email of the candidate not found."}
+
+        except Exception as e:
+            print("Error parsing event payload:", e)
+            event_payload = {
+                "name": "Unknown",
+                "datetime": "2025-01-01T00:00:00",
+                "event_title": "Untitled HR Event",
+            }
+
+            return {
+                "canned_response": f"Could not send the calendar event! Some error occured."
+            }

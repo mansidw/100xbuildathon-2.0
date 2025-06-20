@@ -55,7 +55,12 @@ def chat():
 
         result = chat_service.process_query(table_name, query, user_id)
         print("here with the rsult - ", result)
-        return jsonify({"result": result["response"], "followups": result["followups"]})
+        if "followups" in result:
+            return jsonify(
+                {"result": result["response"], "followups": result["followups"]}
+            )
+        if "canned_response" in result:
+            return jsonify({"result": result["canned_response"]})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
