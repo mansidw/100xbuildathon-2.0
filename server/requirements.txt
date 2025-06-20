@@ -22,3 +22,4 @@ pyngrok==7.1.5
 peopledatalabs==6.3.0
 composio_core
 composio_openai
+passlib[bcrypt]

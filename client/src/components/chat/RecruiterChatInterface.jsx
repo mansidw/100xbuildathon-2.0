@@ -74,8 +74,26 @@ const RecruiterChatInterface = () => {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (!localStorage.getItem('user_id')) {
+      navigate('/login');
+    }
+  }, [navigate]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('user_id');
+    navigate('/login');
+  };
+
   return (
     <div className="flex h-screen bg-[#000000] font-['Inter'] overflow-hidden">
+      {/* Logout Button */}
+      <button
+        onClick={handleLogout}
+        className="absolute top-4 right-4 z-50 px-4 py-2 bg-primary text-primary-foreground rounded-lg shadow hover:bg-primary/90 transition"
+      >
+        Logout
+      </button>
       <ChatSidebar
         chats={chats}
         activeChat={activeChat}

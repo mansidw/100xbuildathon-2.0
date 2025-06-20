@@ -89,4 +89,46 @@ export const getTables = async () => {
         console.error('Error getting tables:', error);
         throw error;
     }
+};
+
+export const registerUser = async (company_name, user_id, password) => {
+    try {
+        const response = await fetch(`${BACKEND_URL}/register`, {
+            method: 'POST',
+            headers: {
+                ...commonHeaders,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ company_name, user_id, password }),
+            ...commonOptions,
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Registration failed');
+        }
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const loginUser = async (user_id, password) => {
+    try {
+        const response = await fetch(`${BACKEND_URL}/login`, {
+            method: 'POST',
+            headers: {
+                ...commonHeaders,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ user_id, password }),
+            ...commonOptions,
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Login failed');
+        }
+        return data;
+    } catch (error) {
+        throw error;
+    }
 }; 
