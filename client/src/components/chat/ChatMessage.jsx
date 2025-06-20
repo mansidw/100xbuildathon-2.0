@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Typewriter } from 'react-simple-typewriter';
 import React from 'react';
 
-const ChatMessage = ({ message, isLoading }) => {
+const ChatMessage = ({ message, isLoading, onFollowup }) => {
     const isUser = message.type === 'user';
     const isSystem = message.type === 'system';
 
@@ -20,9 +20,8 @@ const ChatMessage = ({ message, isLoading }) => {
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: "spring", stiffness: 200, damping: 10 }}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        isSystem ? 'bg-[#FFFFFF]/10' : 'bg-[#FFFFFF]/10'
-                    }`}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${isSystem ? 'bg-[#FFFFFF]/10' : 'bg-[#FFFFFF]/10'
+                        }`}
                 >
                     {isSystem ? (
                         <AlertCircle size={20} className="text-[#FFFFFF]" />
@@ -35,13 +34,12 @@ const ChatMessage = ({ message, isLoading }) => {
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 200, damping: 10 }}
-                className={`max-w-3xl p-6 rounded-2xl ${
-                    isUser
-                        ? 'bg-[#000000]/50 backdrop-blur-sm text-[#FFFFFF]'
-                        : isSystem
-                            ? 'bg-[#FFFFFF]/10 text-[#FFFFFF]'
-                            : 'bg-[#000000]/50 backdrop-blur-sm text-[#FFFFFF]'
-                }`}
+                className={`max-w-3xl p-6 rounded-2xl ${isUser
+                    ? 'bg-[#000000]/50 backdrop-blur-sm text-[#FFFFFF]'
+                    : isSystem
+                        ? 'bg-[#FFFFFF]/10 text-[#FFFFFF]'
+                        : 'bg-[#000000]/50 backdrop-blur-sm text-[#FFFFFF]'
+                    }`}
             >
                 {message.isLoading ? (
                     <div className="flex items-center gap-1">
@@ -119,6 +117,21 @@ const ChatMessage = ({ message, isLoading }) => {
                         >
                             {message.content}
                         </ReactMarkdown>
+                    </div>
+                )}
+                {/* Followup chips */}
+                {Array.isArray(message.followups) && message.followups.length > 0 && (
+                    <div className="flex flex-wrap gap-3 mt-6 justify-start">
+                        {message.followups.map((q, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => onFollowup && onFollowup(q)}
+                                className="px-4 py-2 rounded-full bg-white text-black text-sm font-semibold shadow hover:bg-gray-200 transition border border-[#e5e7eb]"
+                                style={{ minWidth: 'fit-content' }}
+                            >
+                                {q}
+                            </button>
+                        ))}
                     </div>
                 )}
                 <motion.p
