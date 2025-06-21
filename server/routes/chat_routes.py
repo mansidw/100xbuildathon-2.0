@@ -219,8 +219,8 @@ def chat_to_elastic():
           "query": {{
             "bool": {{
               "must": [
-                {{ "match": {{ "first_name": {{ "query": "John", "operator": "and" }} }} }},
-                {{ "match": {{ "last_name": {{ "query": "Doe", "operator": "and" }} }} }}
+                {{ "match": {{ "first_name": "john" }} }},
+                {{ "match": {{ "last_name":"doe" }} }},
               ]
             }}
           }},
