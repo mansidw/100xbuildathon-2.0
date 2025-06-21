@@ -3,6 +3,7 @@ import useChat from "../../hooks/useChat";
 import ChatSidebar from "./ChatSidebar";
 import ChatMessage from "./ChatMessage";
 import NewChatModal from "./NewChatModal";
+import JobDescriptionModal from "./JobDescriptionModal";
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -35,6 +36,7 @@ const RecruiterChatInterface = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [localMessage, setLocalMessage] = useState(""); // Local state for input
   const [followupLoading, setFollowupLoading] = useState(false);
+  const [showJobDescriptionModal, setShowJobDescriptionModal] = useState(false);
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -275,6 +277,7 @@ const RecruiterChatInterface = () => {
               handleKeyPress={handleKeyPress}
               handleSendMessage={handleSendMessage}
               disabled={isLoading || followupLoading}
+              onAboutJob={() => setShowJobDescriptionModal(true)}
             />
           </motion.div>
         )}
@@ -300,6 +303,12 @@ const RecruiterChatInterface = () => {
         candidatesFile={candidatesFile}
         setCandidatesFile={setCandidatesFile}
       />
+
+      <JobDescriptionModal
+        isOpen={showJobDescriptionModal}
+        onClose={() => setShowJobDescriptionModal(false)}
+        tableName={activeChat?.tableName}
+      />
     </div>
   );
 };
@@ -312,13 +321,14 @@ const MemoizedInputArea = React.memo(
     handleKeyPress,
     handleSendMessage,
     disabled,
+    onAboutJob,
   }) => {
     return (
       <div className="border-t border-[#808080]/20 p-6 bg-[#000000]/50 backdrop-blur-sm sticky bottom-0 z-10">
         <div className="flex gap-3">
           <div className="flex items-center gap-4 w-full">
             <button
-              onClick={() => { }}
+              onClick={onAboutJob}
               className="px-6 py-2 bg-[#FFFFFF] text-[#000000] hover:bg-[#FFFFFF]/90 rounded-lg transition-all duration-300 text-base font-medium shadow hover:shadow-lg whitespace-nowrap"
             >
               About Job
@@ -401,13 +411,7 @@ MemoizedInputArea.propTypes = {
   handleKeyPress: PropTypes.func.isRequired,
   handleSendMessage: PropTypes.func.isRequired,
   disabled: PropTypes.bool.isRequired,
-};
-
-MemoizedMessageList.displayName = 'MemoizedMessageList';
-MemoizedMessageList.propTypes = {
-  messages: PropTypes.array.isRequired,
-  followupLoading: PropTypes.bool.isRequired,
-  handleSendMessage: PropTypes.func.isRequired,
+  onAboutJob: PropTypes.func.isRequired,
 };
 
 export default RecruiterChatInterface;

@@ -164,7 +164,7 @@ def chat_to_elastic():
         prompt = data.get("prompt", "")
         if not prompt:
             return jsonify({"error": "Missing prompt"}), 400
-
+        
         # Person schema summary for Gemini
         person_schema = '''
         Person Schema Fields:
