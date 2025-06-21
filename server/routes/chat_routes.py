@@ -165,19 +165,22 @@ def chat_to_elastic():
         chat_context = data.get("chat_context", [])  # Last 5 chats as context
         if not prompt:
             return jsonify({"error": "Missing prompt"}), 400
-        
+
         # Build context from previous chats
         context_string = ""
         if chat_context and len(chat_context) > 0:
             context_string = "\n\nPrevious conversation context:\n"
             for i, chat in enumerate(chat_context[-5:], 1):  # Last 5 chats
-                if isinstance(chat, dict) and 'user_message' in chat and 'assistant_message' in chat:
+                if (
+                    isinstance(chat, dict)
+                    and "user_message" in chat
+                    and "assistant_message" in chat
+                ):
                     context_string += f"{i}. User: {chat['user_message']}\n   Assistant: {chat['assistant_message']}\n"
-                elif isinstance(chat, dict) and 'user' in chat and 'assistant' in chat:
+                elif isinstance(chat, dict) and "user" in chat and "assistant" in chat:
                     context_string += f"{i}. User: {chat['user']}\n   Assistant: {chat['assistant']}\n"
-        
+
         # Person schema summary for Gemini
-        
 
         gemini_instruction = f"""
         You are an expert at generating Elasticsearch queries for a specific API. Your task is to analyze the user's prompt and classify it into one of two categories: "Talent Search" or "Background Verification".
@@ -261,15 +264,14 @@ def chat_to_elastic():
         try:
             elastic_query = json.loads(content)
         except Exception:
-            elastic_query = content # Keep as string if not valid json
-        
+            elastic_query = content  # Keep as string if not valid json
+
         print("Generated Elasticsearch Query:", elastic_query)
-        
+
         # Call People Data Labs API with the elastic query
         peoples_data = peoples_api.fetch_peoples_data(elastic_query)
 
-        print("People - ", peoples_data)
-
+        print("peoples data - ", peoples_data)
         # --- Enhanced Gemini summary for recruiter with LinkedIn/GitHub URLs ---
         summary_prompt = f"""
         You are an expert recruiter assistant. Given the following global talent data search results, create a comprehensive and well-structured response in markdown format.
@@ -324,12 +326,13 @@ def chat_to_elastic():
             temperature=0.2,
         )
         summary_response = summary_llm.invoke(summary_prompt)
-        summary_content = summary_response.content if hasattr(summary_response, "content") else str(summary_response)
+        summary_content = (
+            summary_response.content
+            if hasattr(summary_response, "content")
+            else str(summary_response)
+        )
 
-        return jsonify({
-            "summary": summary_content,
-            "raw": peoples_data
-        })
+        return jsonify({"summary": summary_content, "raw": peoples_data})
     except Exception as e:
         tb = traceback.format_exc()
         print(f"/chat/2 error: {tb}")
