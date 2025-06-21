@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, FileText, Loader2, Briefcase } from 'lucide-react';
+import { X, Loader2, Briefcase } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getJobDescription } from '../../services/api';
 import toast from 'react-hot-toast';
@@ -16,7 +16,6 @@ const JobDescriptionModal = ({ isOpen, onClose, tableName }) => {
 
   const fetchJobDescription = async () => {
     setIsLoading(true);
-    setJobDescription('');
     try {
       const response = await getJobDescription(tableName);
       setJobDescription(response.job_desc || response.result || response.description || 'No job description available');
@@ -29,28 +28,12 @@ const JobDescriptionModal = ({ isOpen, onClose, tableName }) => {
     }
   };
 
-  // Simple parsing to extract clean points
   const parseJobDescription = (text) => {
     if (!text) return [];
-    
-    const lines = text.split('\n').filter(line => line.trim());
-    const points = [];
-    
-    lines.forEach(line => {
-      const trimmedLine = line.trim();
-      if (trimmedLine.startsWith('*')) {
-        // Remove markdown syntax and clean up
-        const cleanPoint = trimmedLine
-          .replace(/^\*\s*/, '') // Remove leading * and spaces
-          .replace(/\*\*/g, '') // Remove **
-          .trim();
-        if (cleanPoint) {
-          points.push(cleanPoint);
-        }
-      }
-    });
-    
-    return points;
+    return text
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line);
   };
 
   const jobPoints = parseJobDescription(jobDescription);
@@ -63,82 +46,80 @@ const JobDescriptionModal = ({ isOpen, onClose, tableName }) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
         onClick={onClose}
       >
         <motion.div
-          initial={{ scale: 0.95, opacity: 0, y: 10 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.95, opacity: 0, y: 10 }}
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="bg-[#1a1a1a] border border-[#808080]/20 rounded-xl shadow-2xl max-w-2xl w-full max-h-[70vh] overflow-hidden"
+          className="bg-black border border-white/20 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[80vh] flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="p-6 border-b border-[#808080]/20 bg-[#000000]/30">
+          <div className="p-6 flex-shrink-0 border-b border-white/20">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#FFFFFF]/10 rounded-lg flex items-center justify-center">
-                  <Briefcase size={20} className="text-[#FFFFFF]" />
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center">
+                  <Briefcase size={20} className="text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold text-[#FFFFFF]">Job Description</h2>
-                  <p className="text-sm text-[#808080]">Role details and requirements</p>
+                  <h2 className="text-xl font-bold text-white">Job Description</h2>
+                  <p className="text-sm text-white/60">Role details and requirements</p>
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-lg bg-[#808080]/10 hover:bg-[#808080]/20 flex items-center justify-center transition-colors"
+                className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
               >
-                <X size={16} className="text-[#FFFFFF]" />
+                <X size={18} className="text-white" />
               </button>
             </div>
           </div>
 
           {/* Content */}
-          <div className="p-6 overflow-y-auto max-h-[50vh]">
+          <div className="p-6 flex-grow overflow-y-auto">
             {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="flex flex-col items-center gap-3">
-                  <Loader2 size={24} className="text-[#FFFFFF] animate-spin" />
-                  <span className="text-[#FFFFFF] font-medium">Loading job description...</span>
+              <div className="flex items-center justify-center h-full">
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <Loader2 size={28} className="text-white animate-spin" />
+                  <span className="text-white font-medium">Loading Description...</span>
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
-                {jobPoints.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="w-12 h-12 bg-[#808080]/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                      <FileText size={20} className="text-[#808080]" />
-                    </div>
-                    <p className="text-[#FFFFFF] font-medium mb-1">No job description available</p>
-                    <p className="text-[#808080] text-sm">The job description for this role hasn't been uploaded yet.</p>
-                  </div>
-                ) : (
-                  jobPoints.map((point, index) => (
+              <div className="space-y-5">
+                {jobPoints.map((point, index) => {
+                  const cleanedPoint = point.replace(/^\*\s*/, '');
+                  const parts = cleanedPoint.split(/:(.*)/);
+                  const title = parts[0] ? `${parts[0].replace(/\*\*/g, '')}:` : '';
+                  const description = parts[1] ? parts[1].replace(/\*\*/g, '').trim() : '';
+
+                  return (
                     <motion.div
                       key={index}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="flex items-start gap-3 group"
+                      transition={{ delay: index * 0.05, type: 'spring', stiffness: 300, damping: 20 }}
+                      className="flex items-start gap-4"
                     >
-                      <div className="w-2 h-2 bg-[#FFFFFF]/60 rounded-full mt-2 flex-shrink-0"></div>
-                      <p className="text-[#FFFFFF]/90 leading-relaxed">
-                        {point}
+                      <div className="w-2 h-2 bg-white/50 rounded-full mt-[10px] flex-shrink-0" />
+                      <p className="text-white leading-relaxed text-base">
+                        <span className="font-semibold">{title}</span>
+                        {description}
                       </p>
                     </motion.div>
-                  ))
-                )}
+                  );
+                })}
               </div>
             )}
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end p-6 border-t border-[#808080]/20 bg-[#000000]/30">
+          <div className="p-4 flex-shrink-0 border-t border-white/20 flex justify-end">
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-[#FFFFFF] text-[#000000] hover:bg-[#FFFFFF]/90 rounded-lg transition-colors font-medium text-sm"
+              className="px-5 py-2 bg-white/10 text-white hover:bg-white/20 rounded-lg transition-colors font-medium text-sm"
             >
               Close
             </button>
