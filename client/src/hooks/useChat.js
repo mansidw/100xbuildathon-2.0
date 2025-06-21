@@ -36,7 +36,7 @@ export const useChat = () => {
         if (tablesData && Array.isArray(tablesData.tables)) {
           // Filter out system tables
           const userTables = tablesData.tables.filter(tableName => 
-            !['rejected_candidates', 'candidates'].includes(tableName)
+            !['rejected_candidates', 'candidates', 'users'].includes(tableName)
           );
 
           // Convert tables data to chat format

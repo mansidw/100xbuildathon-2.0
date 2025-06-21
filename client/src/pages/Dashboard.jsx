@@ -104,7 +104,7 @@ const Dashboard = () => {
       if (response.data && response.data.tables) {
         // Filter out system tables and sort by timestamp (newest first)
         const userTables = response.data.tables
-          .filter(tableName => !['rejected_candidates', 'candidates'].includes(tableName))
+          .filter(tableName => !['rejected_candidates', 'candidates', 'users'].includes(tableName))
           .sort((a, b) => {
             // Extract timestamps from table names if they exist
             const getTimestamp = (name) => {
