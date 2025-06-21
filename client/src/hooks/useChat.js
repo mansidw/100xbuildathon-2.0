@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { createNewChat, sendChatMessage, getTables, getChatHistory } from '../services/api';
+import { createNewChat, sendChatMessage, getTables, getChatHistory, sendGlobalChatMessage } from '../services/api';
 import { generateTableName } from '../config/constants';
 import { toast } from 'sonner';
 import posthog from 'posthog-js';
@@ -16,6 +16,9 @@ export const useChat = () => {
   const [roleName, setRoleName] = useState('');
   const [jdFile, setJdFile] = useState(null);
   const [candidatesFile, setCandidatesFile] = useState(null);
+
+  // Helper for global chat history
+  const GLOBAL_CHAT_PREFIX = 'global_chat_history_';
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -79,9 +82,86 @@ export const useChat = () => {
     loadTables();
   }, []);
 
-  const createNewChatSession = async () => {
-    if (!roleName || !jdFile || !candidatesFile) return;
+  // Fix: Only update messages if not already loaded
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (activeChat && activeChat.type !== 'global' && activeChat.tableName && localStorage.getItem('user_id')) {
+        // Only fetch if messages are empty or only system message
+        if (!activeChat.messages || activeChat.messages.length === 0 || (activeChat.messages.length === 1 && activeChat.messages[0].type === 'system')) {
+          try {
+            const chatsArr = await getChatHistory(localStorage.getItem('user_id'), activeChat.tableName);
+            // chatsArr is an array of [question, answer] pairs
+            const messages = [];
+            chatsArr.forEach(([question, answer], idx) => {
+              messages.push({
+                id: `${activeChat.tableName}-user-${idx}-${Date.now()}`,
+                type: 'user',
+                content: question,
+                timestamp: ''
+              });
+              messages.push({
+                id: `${activeChat.tableName}-ai-${idx}-${Date.now()}`,
+                type: 'ai',
+                content: answer,
+                timestamp: ''
+              });
+            });
+            setChats(prev => prev.map(chat =>
+              chat.tableName === activeChat.tableName ? { ...chat, messages } : chat
+            ));
+            setActiveChat(prev => prev && prev.tableName === activeChat.tableName ? { ...prev, messages } : prev);
+          } catch {/* ignore */}
+        }
+      }
+    };
+    fetchHistory();
+    // eslint-disable-next-line
+  }, [activeChat?.tableName, activeChat?.type]);
 
+  // Save global chat history to localStorage whenever it changes for the active chat
+  useEffect(() => {
+    if (activeChat && activeChat.type === 'global' && activeChat.messages.length > 0) {
+      saveGlobalChatHistory(activeChat.title, activeChat.messages);
+    }
+  }, [activeChat, activeChat?.messages]);
+
+  // Global chat: store and fetch from localStorage only
+  const loadGlobalChatHistory = async (chatName) => {
+    try {
+      const data = localStorage.getItem(GLOBAL_CHAT_PREFIX + chatName);
+      if (data) return JSON.parse(data);
+    } catch {/* ignore */}
+    return [];
+  };
+
+  const saveGlobalChatHistory = async (chatName, messages) => {
+    try {
+      localStorage.setItem(GLOBAL_CHAT_PREFIX + chatName, JSON.stringify(messages));
+    } catch {/* ignore */}
+  };
+
+  const createNewChatSession = async (opts = {}) => {
+    if (opts.chatType === 'global') {
+      const { globalChatName } = opts;
+      if (!globalChatName) return;
+      // Load previous messages if any (from backend or localStorage)
+      const previousMessages = await loadGlobalChatHistory(globalChatName);
+      const newChat = {
+        id: Date.now(),
+        title: globalChatName,
+        roleName: 'Global',
+        tableName: null,
+        type: 'global',
+        messages: previousMessages,
+        processed: true,
+        createdAt: new Date().toLocaleString(),
+      };
+      setChats(prev => [newChat, ...prev.filter(c => c.title !== globalChatName)]);
+      setActiveChat(newChat);
+      setShowNewChatModal(false);
+      return;
+    }
+    if (!roleName || !jdFile || !candidatesFile) return;
     setIsProcessing(true);
     const tableName = generateTableName(roleName);
     posthog.capture("create_new_chat", {
@@ -90,15 +170,12 @@ export const useChat = () => {
       buttonName: 'Create New Chat',   
  },
   });
-    
     // Show initial processing toast
     toast.info(`Processing ${candidatesFile.name} for ${roleName} position...`, {
       duration: 3000
     });
-    
     try {
       const result = await createNewChat(candidatesFile, jdFile, tableName);
-      
       const newChat = {
         id: Date.now(),
         title: roleName,
@@ -107,7 +184,7 @@ export const useChat = () => {
         jdFileName: jdFile.name,
         candidatesFileName: candidatesFile.name,
         messages: [{
-          id: Date.now(),
+          id: `system-${Date.now()}-${Math.random()}`,
           type: 'system',
           content: result.message,
           timestamp: new Date().toLocaleTimeString()
@@ -115,12 +192,9 @@ export const useChat = () => {
         processed: true,
         createdAt: new Date().toLocaleString()
       };
-      
       setChats(prev => [newChat, ...prev]);
       setActiveChat(newChat);
       setShowNewChatModal(false);
-      
-      // Show success toast with more details
       toast.success(`Successfully processed ${candidatesFile.name} for ${roleName} position. Ready to analyze!`, {
         duration: 4000
       });
@@ -139,32 +213,84 @@ export const useChat = () => {
 
   const sendMessage = async (messageText) => {
     if (!messageText.trim() || !activeChat || !activeChat.processed) return;
-
+    // If global chat, use sendGlobalChatMessage
+    if (activeChat.type === 'global') {
+      const userMessage = {
+        id: `user-${Date.now()}-${Math.random()}`,
+        type: 'user',
+        content: messageText,
+        timestamp: new Date().toLocaleTimeString(),
+      };
+      const loadingMessage = {
+        id: `ai-${Date.now()}-${Math.random()}`,
+        type: 'ai',
+        content: '',
+        isLoading: true,
+        timestamp: new Date().toLocaleTimeString(),
+      };
+      const updatedChat = {
+        ...activeChat,
+        messages: [...activeChat.messages, userMessage, loadingMessage],
+      };
+      setChats(prev => prev.map(chat =>
+        chat.id === activeChat.id ? updatedChat : chat
+      ));
+      setActiveChat(updatedChat);
+      try {
+        const response = await sendGlobalChatMessage(messageText);
+        const aiMessage = {
+          id: loadingMessage.id,
+          type: 'ai',
+          content: response.summary,
+          raw: response.raw,
+          isLoading: false,
+          timestamp: new Date().toLocaleTimeString(),
+        };
+        const finalChat = {
+          ...updatedChat,
+          messages: [...updatedChat.messages.slice(0, -1), aiMessage],
+        };
+        setChats(prev => prev.map(chat =>
+          chat.id === activeChat.id ? finalChat : chat
+        ));
+        setActiveChat(finalChat);
+        return; // Early return for global chat
+      } catch (error) {
+        console.error('Error in global chat:', error);
+        toast.error('Failed to get response from AI');
+        // Remove loading message on error
+        const errorChat = {
+          ...updatedChat,
+          messages: updatedChat.messages.slice(0, -1),
+        };
+        setChats(prev => prev.map(chat =>
+          chat.id === activeChat.id ? errorChat : chat
+        ));
+        setActiveChat(errorChat);
+        return; // Early return
+      }
+    }
     const userMessage = {
-        id: Date.now(),
+        id: `user-${Date.now()}-${Math.random()}`,
         type: 'user',
         content: messageText,
         timestamp: new Date().toLocaleTimeString()
     };
-
     const loadingMessage = {
-        id: Date.now() + 1,
+        id: `ai-${Date.now()}-${Math.random()}`,
         type: 'ai',
         content: '',
         isLoading: true,
         timestamp: new Date().toLocaleTimeString()
     };
-
     const updatedChat = {
         ...activeChat,
         messages: [...activeChat.messages, userMessage, loadingMessage]
     };
-
     setChats(prev => prev.map(chat => 
         chat.id === activeChat.id ? updatedChat : chat
     ));
     setActiveChat(updatedChat);
-
     try {
         const response = await sendChatMessage(activeChat.tableName, messageText);
         // response: { result, followups }
@@ -176,12 +302,10 @@ export const useChat = () => {
             isLoading: false,
             timestamp: new Date().toLocaleTimeString()
         };
-
         const finalChat = {
             ...updatedChat,
             messages: [...updatedChat.messages.slice(0, -1), aiMessage]
         };
-
         setChats(prev => prev.map(chat => 
             chat.id === activeChat.id ? finalChat : chat
         ));
@@ -194,7 +318,6 @@ export const useChat = () => {
             ...updatedChat,
             messages: updatedChat.messages.slice(0, -1)
         };
-        
         setChats(prev => prev.map(chat => 
             chat.id === activeChat.id ? finalChat : chat
         ));
@@ -202,41 +325,6 @@ export const useChat = () => {
         throw error;
     }
   };
-
-  // Fetch chat history when activeChat changes
-  useEffect(() => {
-    const fetchHistory = async () => {
-      if (activeChat && activeChat.tableName && localStorage.getItem('user_id')) {
-        try {
-          const chatsArr = await getChatHistory(localStorage.getItem('user_id'), activeChat.tableName);
-          // chatsArr is an array of [question, answer] pairs
-          const messages = [];
-          chatsArr.forEach(([question, answer], idx) => {
-            messages.push({
-              id: `${activeChat.tableName}-q-${idx}`,
-              type: 'user',
-              content: question,
-              timestamp: ''
-            });
-            messages.push({
-              id: `${activeChat.tableName}-a-${idx}`,
-              type: 'ai',
-              content: answer,
-              timestamp: ''
-            });
-          });
-          setChats(prev => prev.map(chat =>
-            chat.tableName === activeChat.tableName ? { ...chat, messages } : chat
-          ));
-          setActiveChat(prev => prev ? { ...prev, messages } : prev);
-        } catch (e) {
-          // Optionally handle error
-        }
-      }
-    };
-    fetchHistory();
-    // eslint-disable-next-line
-  }, [activeChat && activeChat.tableName]);
 
   return {
     chats,

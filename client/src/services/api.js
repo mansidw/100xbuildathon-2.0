@@ -150,4 +150,41 @@ export const getChatHistory = async (user_id, tableName) => {
     } catch (error) {
         throw error;
     }
+};
+
+export const sendGlobalChatMessage = async (prompt) => {
+    const response = await fetch(`${BACKEND_URL}/chat/2`, {
+        method: 'POST',
+        headers: {
+            ...commonHeaders,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt }),
+        ...commonOptions,
+    });
+    if (!response.ok) throw new Error('Failed to send global chat message');
+    return await response.json();
+};
+
+export const getJobDescription = async (tableName) => {
+    try {
+        const response = await fetch(`${BACKEND_URL}/get-job-description?tableName=${encodeURIComponent(tableName)}`, {
+            method: 'GET',
+            headers: {
+                ...commonHeaders,
+                'Content-Type': 'application/json',
+            },
+            ...commonOptions,
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to get job description');
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error getting job description:', error);
+        throw error;
+    }
 }; 

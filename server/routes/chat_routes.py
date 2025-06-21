@@ -10,6 +10,7 @@ import requests
 from PyPDF2 import PdfReader
 import sqlite3
 import json
+import traceback
 
 chat_bp = Blueprint("chat", __name__)
 chat_service = ChatService()
@@ -132,7 +133,9 @@ def new_chat():
 
         return jsonify({"result": result})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        tb = traceback.format_exc()
+        print(f"/newChat error: {tb}")
+        return jsonify({"error": str(e), "traceback": tb}), 500
 
 
 @chat_bp.route("/gettables", methods=["GET"])
@@ -161,30 +164,72 @@ def chat_to_elastic():
         prompt = data.get("prompt", "")
         if not prompt:
             return jsonify({"error": "Missing prompt"}), 400
+        
+        # Person schema summary for Gemini
+        person_schema = '''
+        Person Schema Fields:
+        - first_name: The person's first name (string)
+        - full_name: The person's full name (string)
+        - id: Unique persistent identifier for the person (string)
+        - last_initial: First letter of last name (string, 1 char)
+        - last_name: The person's last name (string)
+        - middle_initial: First letter of middle name (string, 1 char)
+        - middle_name: The person's middle name (string)
+        - name_aliases: Other names/aliases (array of strings)
+        - emails: List of email objects (address, type, first_seen, last_seen, num_sources)
+        - mobile_phone: Personal mobile phone (string)
+        - personal_emails: All personal emails (array of strings)
+        - phone_numbers: All phone numbers (array of strings)
+        - phones: List of phone objects (number, first_seen, last_seen, num_sources)
+        - recommended_personal_email: Best personal email (string)
+        - work_email: Current work email (string)
+        - job_company_*: Current company fields (name, id, industry, size, etc.)
+        - job_title: Current job title (string)
+        - job_title_role: Derived job role (string)
+        - job_title_levels: Derived job levels (array)
+        - job_start_date: Date started current job (string)
+        - job_summary: User-inputted job summary (string)
+        - birth_date: Date of birth (string)
+        - birth_year: Year of birth (int)
+        - sex: Person's sex (string)
+        - languages: Languages known (array of objects)
+        - education: Education info (array of objects)
+        - location_*: Current address fields (country, region, locality, etc.)
+        - profiles: Social profiles (array of objects)
+        - skills: Self-reported skills (array of strings)
+        - summary: Personal summary (string)
+        - experience: Work experience history (array of objects). For querying years of experience, use 'inferred_years_experience'.
+        - inferred_years_experience: Inferred total years of work experience (integer, 0-100). Use this for range queries on experience length.
+        - ... (see docs for full list)
+        '''
 
-        gemini_instruction = """
-        You are an expert in Elasticsearch. Given the following user prompt, generate a JSON Elasticsearch query in this STRICT format only:
-        below is a example of the query format:
-        {
-        "query": {
-            "bool": {
+        gemini_instruction = f"""
+        You are an expert in Elasticsearch and the Person schema below. Given the following user prompt, generate a JSON Elasticsearch query in this STRICT format only, using only valid fields from the schema:
+
+        {person_schema}
+
+        Example query format:
+        {{
+        "query": {{
+            "bool": {{
                 "must": [
-                    {"term": {"location_country": "mexico"}},
-                    {"term": {"job_title_role": "health"}},
-                    {"exists": {"field": "phone_numbers"}}
-            ]
-            }
-        }
-        }
+                    {{"term": {{"location_country": "mexico"}}}},
+                    {{"term": {{"job_title_role": "health"}}}},
+                    {{"exists": {{"field": "phone_numbers"}}}}
+                ]
+            }}
+        }}
+        }}
 
         - Only return the JSON in the above format, filling in the query as needed based on the prompt.
         - Do not add any explanation or extra text.
         - If the prompt is empty, return the default query as above.
-        - note your context is the peoples datalabs Person schema for your fields
-        Prompt: 
+        - Use only fields from the Person schema above.
+        - If the user asks for a field not in the schema, ignore it.
+        - Use the most relevant fields for the user's intent.
+        Prompt:
+        {prompt}
         """
-
-        gemini_instruction = gemini_instruction + prompt
 
         from langchain_google_genai import ChatGoogleGenerativeAI
         import os
@@ -211,6 +256,27 @@ def chat_to_elastic():
         print("Elastic Query:", elastic_query)
         # Call People Data Labs API with the elastic query
         peoples_data = peoples_api.fetch_peoples_data(elastic_query)
-        return jsonify(peoples_data)
+
+        # --- Gemini summary for recruiter ---
+        summary_prompt = f"""
+        You are an expert recruiter assistant. Given the following global talent data search results, write a friendly, concise, and human-readable summary for a recruiter. Highlight the most relevant insights, trends, or interesting findings. If the data is empty, say so politely. Do not include raw JSON or code, just a readable summary.
+
+        Data:
+        {json.dumps(peoples_data)[:8000]}  # Truncate to avoid token overflow
+        """
+        summary_llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",
+            google_api_key=os.getenv("GOOGLE_API_KEY"),
+            temperature=0.2,
+        )
+        summary_response = summary_llm.invoke(summary_prompt)
+        summary_content = summary_response.content if hasattr(summary_response, "content") else str(summary_response)
+
+        return jsonify({
+            "summary": summary_content,
+            "raw": peoples_data
+        })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        tb = traceback.format_exc()
+        print(f"/chat/2 error: {tb}")
+        return jsonify({"error": str(e), "traceback": tb}), 500
