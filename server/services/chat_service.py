@@ -163,13 +163,14 @@ class ChatService:
 
             Classify the intent of the following user question into one of:
             - "sql": if the question relates to querying a candidate database.
+            - "bestfit": if the question relates to the showing proofs/reasons/source of why the candidate is a perfect fit (samples might include question like - why do you think the candidate mansi is a good fit?)
             - "gmail": if it involves sending, replying to, or checking emails.
             - "calendar": if it involves scheduling or managing meetings on a calendar.
             - "unknown": if the intent is unclear or unsupported.
 
             User Question: "{question}"
 
-            Respond with only one word: "sql", "gmail", "calendar", or "unknown".
+            Respond with only one word: "sql","bestfit", "gmail", "calendar", or "unknown".
             """
         response = litellm.completion(
             model="gemini/gemini-2.0-flash",
@@ -227,6 +228,8 @@ class ChatService:
 
             if intent == "gmail":
                 return self.send_mail_to_candidates(rephrased_query)
+            elif intent == "bestfit":
+                return self.get_highlighted_resume(rephrased_query, table_name)
             elif intent == "calendar":
                 return self.create_calendar_event(rephrased_query)
             elif intent == "sql":
@@ -530,14 +533,16 @@ class ChatService:
                 cursor = connection.cursor()
 
                 # Ensure private.jobDesc table exists
-                cursor.execute('''
+                cursor.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS private.jobDesc (
                         id SERIAL PRIMARY KEY,
                         table_name TEXT NOT NULL,
                         jd_content TEXT NOT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
-                ''')
+                """
+                )
 
                 cursor.execute(f'DROP TABLE IF EXISTS "{table_name}"')
 
@@ -569,6 +574,26 @@ class ChatService:
                         print(
                             f"Resume text extracted, length: {len(resume_text)} characters"
                         )
+
+                        # saving the resume text for all the candidate
+                        insert_columns = "id, name, resume_link, resume_text"
+                        placeholders = ", ".join(["%s"] * 4)
+                        insert_sql = f"INSERT INTO private.candidates ({insert_columns}) VALUES ({placeholders})"
+
+                        values = [
+                            str(uuid.uuid4()),
+                            row["name"],
+                            row["pdf_url"],
+                            resume_text,
+                        ]
+
+                        print(values)
+
+                        print(f"Debug: Inserting candidates data...")
+                        cursor.execute(insert_sql, values)
+                        connection.commit()
+                        cursor.close()
+                        connection.close()
 
                         print("Extracting candidate information...")
                         candidate_info = self._extract_candidate_info_for_jd(
@@ -1224,3 +1249,111 @@ class ChatService:
         except Exception as e:
             traceback.print_exc()
             raise Exception(f"Error getting job description: {str(e)}")
+
+    def get_highlighted_resume(self, rephrased_query, table_name):
+        # Step 1: Compose prompt to extract name + draft email
+        prompt = f"""
+        You are an a helpful assistant. Given the following user request, you do the following:
+        1. Extract the **candidate's full name** mentioned in the sentence
+
+        Return your output strictly in this JSON format:
+        {{
+            "name": "<Candidate Full Name>"
+        }}
+
+        User Request:
+        \"\"\"{rephrased_query}\"\"\"
+        """
+
+        # Step 2: Get response from LLM
+        response = litellm.completion(
+            model="gemini/gemini-2.0-flash",
+            messages=[{"role": "user", "content": prompt}],
+            api_key=os.getenv("GOOGLE_API_KEY"),
+        )
+
+        raw_output = response.choices[0].message.content.strip()
+        raw_output = raw_output.replace("```json", "").replace("```", "").strip()
+        print("LLM Email Composer Raw Output:", raw_output)
+
+        # Step 3: Safely parse JSON
+        try:
+            import json
+
+            candidate_name_json = json.loads(raw_output)
+            candidate_name = candidate_name_json["name"]
+            candidate_details = self.get_candidate_details_by_name(candidate_name)
+            if "name" in candidate_details:
+                try:
+                    connection = self._get_db_connection()
+                    cursor = connection.cursor()
+
+                    cursor.execute(
+                        f"""
+                        SELECT resume_text
+                        FROM private.candidates 
+                        WHERE name = %s
+                        """,
+                        (candidate_details["name"],),
+                    )
+                    resume_data = cursor.fetchone()
+                    cursor.execute(
+                        f"""
+                        SELECT jd_content 
+                        FROM private.jobDesc 
+                        WHERE table_name = %s
+                        """,
+                        (table_name,),
+                    )
+                    job_description = cursor.fetchone()
+
+                    cursor.close()
+                    connection.close()
+
+                    prompt = f"""
+                    You are a recruitment assistant.
+                    Given a job description and a candidate's resume, your task is to identify parts of the resume that clearly demonstrate the candidates suitability for the job.
+
+                    Only select verbatim strings from the resume that mention relevant skills, technologies, roles, responsibilities, achievements, or certifications aligned with the job description.
+
+                    🧠 Guidelines:
+                        - Select only the most relevant and specific matches.
+                        - Avoid generic phrases or soft skills unless highly relevant to the JD.
+                        - Do not paraphrase or rewrite — only return exact excerpts from the resume.
+                        - The output should be a list of strings, each representing one relevant excerpt from the resume.
+
+                    📄 Input:
+                    Job Description:
+                    {job_description}
+
+                    Resume:
+                    {resume_data}
+
+                    🎯 Output:
+                    Return a JSON list of strings from the resume that best match the job description.
+                    """
+
+                    # Step 2: Get response from LLM
+                    response = litellm.completion(
+                        model="gemini/gemini-2.0-flash",
+                        messages=[{"role": "user", "content": prompt}],
+                        api_key=os.getenv("GOOGLE_API_KEY"),
+                    )
+
+                    raw_output = response.choices[0].message.content.strip()
+                    raw_output = (
+                        raw_output.replace("```json", "").replace("```", "").strip()
+                    )
+                    skills_to_be_highlighted = ast.literal_eval(raw_output)
+                    return {"canned_response": skills_to_be_highlighted}
+                except Exception as e:
+                    traceback.print_exc()
+                    # return {"canned_response":f"The email was successfully sent to {candidate_details['email']}"}
+                    return {"canned_response": f"The skills could not be highlighted!"}
+
+            else:
+                return {"canned_response": f"The email of the candidate not found."}
+        except Exception as e:
+            print("Error parsing LLM email JSON:", e)
+            traceback.print_exc()
+            return {"canned_response": f"Could not highlight pdf! Some error occured."}
