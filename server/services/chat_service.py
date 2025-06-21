@@ -556,9 +556,10 @@ class ChatService:
                 """
                 print(f"Debug: CREATE TABLE SQL: {create_table_sql}")
                 cursor.execute(create_table_sql)
+                current_timestamp = datetime.now()
                 cursor.execute(
-                    "INSERT INTO private.jobDesc (table_name, jd_content) VALUES (%s, %s)",
-                    (table_name, jd_text),
+                    "INSERT INTO private.jobDesc (id,table_name, jd_content,created_at) VALUES (%s,%s,%s, %s)",
+                    (1, table_name, jd_text, current_timestamp),
                 )
                 connection.commit()
                 print(f"Table {table_name} created successfully")
