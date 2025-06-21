@@ -1,9 +1,21 @@
-import React, { useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { Typewriter } from 'react-simple-typewriter';
-import * as THREE from 'three';
-import { useNavigate } from 'react-router-dom';
-import { Bot, ArrowRight, Database, Brain, Users, FileText, Sparkles, Zap, Shield, BarChart, ChevronDown } from 'lucide-react';
+import React, { useEffect, useRef } from "react";
+import { motion } from "framer-motion";
+import { Typewriter } from "react-simple-typewriter";
+import * as THREE from "three";
+import { useNavigate } from "react-router-dom";
+import {
+  Bot,
+  ArrowRight,
+  Database,
+  Brain,
+  Users,
+  FileText,
+  Sparkles,
+  Zap,
+  Shield,
+  BarChart,
+  ChevronDown,
+} from "lucide-react";
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -16,8 +28,8 @@ const LandingPage = () => {
     animate: {
       opacity: 1,
       scale: 1,
-      transition: { duration: 1.8, ease: "easeOut" }
-    }
+      transition: { duration: 1.8, ease: "easeOut" },
+    },
   };
 
   // Features from README.md
@@ -25,46 +37,49 @@ const LandingPage = () => {
     {
       icon: <Brain className="w-8 h-8 text-[#FFFFFF]" />,
       title: "Natural Language Database Queries",
-      description: "Ask questions about your candidate data in plain English"
+      description: "Ask questions about your candidate data in plain English",
     },
     {
       icon: <FileText className="w-8 h-8 text-[#FFFFFF]" />,
       title: "Automated Resume Processing",
-      description: "Extract structured information from candidate resumes"
+      description: "Extract structured information from candidate resumes",
     },
     {
       icon: <Database className="w-8 h-8 text-[#FFFFFF]" />,
       title: "Intelligent Candidate Scoring",
-      description: "Calculate match scores between candidates and job requirements"
+      description:
+        "Calculate match scores between candidates and job requirements",
     },
     {
       icon: <Users className="w-8 h-8 text-[#FFFFFF]" />,
       title: "Multi-format Support",
-      description: "Process PDF resumes and job descriptions"
-    }
+      description: "Process PDF resumes and job descriptions",
+    },
   ];
 
   const benefits = [
     {
       icon: <Sparkles className="w-8 h-8 text-[#FFFFFF]" />,
       title: "AI-Powered Insights",
-      description: "Get deep insights into candidate profiles using advanced AI algorithms"
+      description:
+        "Get deep insights into candidate profiles using advanced AI algorithms",
     },
     {
       icon: <Zap className="w-8 h-8 text-[#FFFFFF]" />,
       title: "Lightning Fast Processing",
-      description: "Process hundreds of resumes in minutes, not hours"
+      description: "Process hundreds of resumes in minutes, not hours",
     },
     {
       icon: <Shield className="w-8 h-8 text-[#FFFFFF]" />,
       title: "Secure & Private",
-      description: "Enterprise-grade security for your candidate data"
+      description: "Enterprise-grade security for your candidate data",
     },
     {
       icon: <BarChart className="w-8 h-8 text-[#FFFFFF]" />,
       title: "Data-Driven Decisions",
-      description: "Make informed hiring decisions with comprehensive analytics"
-    }
+      description:
+        "Make informed hiring decisions with comprehensive analytics",
+    },
   ];
 
   // Initialize Three.js scene
@@ -73,7 +88,12 @@ const LandingPage = () => {
 
     // Scene setup
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(
+      75,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
 
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -83,10 +103,10 @@ const LandingPage = () => {
     // Create stars
     const starsGeometry = new THREE.BufferGeometry();
     const starsMaterial = new THREE.PointsMaterial({
-      color: 0xFFFFFF,
+      color: 0xffffff,
       size: 0.1,
       transparent: true,
-      opacity: 0.8
+      opacity: 0.8,
     });
 
     const starsVertices = [];
@@ -97,7 +117,10 @@ const LandingPage = () => {
       starsVertices.push(x, y, z);
     }
 
-    starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starsVertices, 3));
+    starsGeometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(starsVertices, 3)
+    );
     const stars = new THREE.Points(starsGeometry, starsMaterial);
     scene.add(stars);
 
@@ -121,11 +144,11 @@ const LandingPage = () => {
       renderer.setSize(window.innerWidth, window.innerHeight);
     };
 
-    window.addEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
 
     // Cleanup
     return () => {
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener("resize", handleResize);
       containerRef.current?.removeChild(renderer.domElement);
       scene.clear();
     };
@@ -136,28 +159,29 @@ const LandingPage = () => {
     {
       number: 1,
       title: "Upload Data",
-      description: "Upload your job description and candidate resumes"
+      description: "Upload your job description and candidate resumes",
     },
     {
       number: 2,
       title: "AI Analysis",
-      description: "Our AI processes and analyzes the data"
+      description: "Our AI processes and analyzes the data",
     },
     {
       number: 3,
       title: "Background Verification",
-      description: "Automated checks for candidate background and credentials"
+      description: "Automated checks for candidate background and credentials",
     },
     {
       number: 4,
       title: "Chat and Interact",
-      description: "Chat with the AI to refine results and get detailed answers"
+      description:
+        "Chat with the AI to refine results and get detailed answers",
     },
     {
       number: 5,
       title: "Get Insights",
-      description: "Receive comprehensive insights and make informed decisions"
-    }
+      description: "Receive comprehensive insights and make informed decisions",
+    },
   ];
 
   return (
@@ -178,7 +202,12 @@ const LandingPage = () => {
             <motion.div
               initial={{ scale: 0, rotate: -180 }}
               animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: "spring", stiffness: 150, damping: 12, delay: 0.3 }}
+              transition={{
+                type: "spring",
+                stiffness: 150,
+                damping: 12,
+                delay: 0.3,
+              }}
               className="w-32 h-32 bg-[#FFFFFF]/10 rounded-full flex items-center justify-center mx-auto mb-8 border border-[#FFFFFF]/20"
             >
               <Bot size={64} className="text-[#FFFFFF]" />
@@ -191,9 +220,9 @@ const LandingPage = () => {
               transition={{ delay: 0.5 }}
             >
               <Typewriter
-                words={['Hire AI']}
+                words={["Recruiter बंधू "]}
                 cursor
-                cursorStyle='_'
+                cursorStyle="_"
                 typeSpeed={70}
                 deleteSpeed={50}
               />
@@ -205,13 +234,18 @@ const LandingPage = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.7 }}
             >
-              Transform your hiring process with AI-powered candidate analysis and intelligent insights
+              Transform your hiring process with AI-powered candidate analysis
+              and intelligent insights
             </motion.p>
 
             <motion.button
-              whileHover={{ scale: 1.05, backgroundColor: '#FFFFFF', color: '#000000' }}
+              whileHover={{
+                scale: 1.05,
+                backgroundColor: "#FFFFFF",
+                color: "#000000",
+              }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => navigate('/chat')}
+              onClick={() => navigate("/chat")}
               className="px-8 py-4 bg-[#FFFFFF] text-[#000000] hover:bg-[#FFFFFF]/90 rounded-lg transition-all duration-300 inline-flex items-center gap-2 text-lg font-medium border border-[#FFFFFF]"
             >
               Get Started
@@ -278,9 +312,7 @@ const LandingPage = () => {
                 viewport={{ once: true, margin: "-50px 0px" }}
                 transition={{ delay: index * 0.1 }}
               >
-                <div className="text-[#FFFFFF] mb-4">
-                  {feature.icon}
-                </div>
+                <div className="text-[#FFFFFF] mb-4">{feature.icon}</div>
                 <h3 className="text-2xl font-semibold mb-4">{feature.title}</h3>
                 <p className="text-[#808080]">{feature.description}</p>
               </motion.div>
@@ -296,7 +328,7 @@ const LandingPage = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-50px 0px" }}
           >
-            Why Choose Hire AI?
+            Why Choose Recruiter बंधू ?
           </motion.h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
@@ -309,9 +341,7 @@ const LandingPage = () => {
                 viewport={{ once: true, margin: "-50px 0px" }}
                 transition={{ delay: index * 0.1 }}
               >
-                <div className="text-[#FFFFFF] mb-4">
-                  {benefit.icon}
-                </div>
+                <div className="text-[#FFFFFF] mb-4">{benefit.icon}</div>
                 <h3 className="text-2xl font-semibold mb-4">{benefit.title}</h3>
                 <p className="text-[#808080]">{benefit.description}</p>
               </motion.div>
@@ -340,15 +370,23 @@ const LandingPage = () => {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: "-50px 0px" }}
                   transition={{ delay: index * 0.1 }}
-                  whileHover={{ scale: 1.05, backgroundColor: '#FFFFFF', color: '#FFFFFF' }}
+                  whileHover={{
+                    scale: 1.05,
+                    backgroundColor: "#FFFFFF",
+                    color: "#FFFFFF",
+                  }}
                 >
                   {index < howItWorksSteps.length - 1 && (
                     <div className="hidden md:block absolute top-1/2 right-0 w-8 h-1 bg-[#808080]/50 transform translate-x-full -translate-y-1/2"></div>
                   )}
                   <div className="w-16 h-16 bg-[#FFFFFF]/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-[#FFFFFF]/20">
-                    <span className="text-2xl font-bold text-[#FFFFFF]">{step.number}</span>
+                    <span className="text-2xl font-bold text-[#FFFFFF]">
+                      {step.number}
+                    </span>
                   </div>
-                  <h3 className="text-xl font-semibold mb-2 text-[#FFFFFF]">{step.title}</h3>
+                  <h3 className="text-xl font-semibold mb-2 text-[#FFFFFF]">
+                    {step.title}
+                  </h3>
                   <p className="text-[#808080]">{step.description}</p>
                 </motion.div>
               ))}
@@ -363,14 +401,21 @@ const LandingPage = () => {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
         >
-          <h2 className="text-4xl font-bold mb-8">Ready to Transform Your Hiring Process?</h2>
+          <h2 className="text-4xl font-bold mb-8">
+            Ready to Transform Your Hiring Process?
+          </h2>
           <p className="text-xl text-[#808080] mb-12 max-w-2xl mx-auto">
-            Join the future of recruitment with AI-powered insights and automated candidate analysis
+            Join the future of recruitment with AI-powered insights and
+            automated candidate analysis
           </p>
           <motion.button
-            whileHover={{ scale: 1.05, backgroundColor: '#FFFFFF', color: '#000000' }}
+            whileHover={{
+              scale: 1.05,
+              backgroundColor: "#FFFFFF",
+              color: "#000000",
+            }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => navigate('/chat')}
+            onClick={() => navigate("/chat")}
             className="px-8 py-4 bg-[#FFFFFF] text-[#000000] hover:bg-[#FFFFFF]/90 rounded-lg transition-all duration-300 inline-flex items-center gap-2 text-lg font-medium border border-[#FFFFFF]"
           >
             Start Your Journey
@@ -380,9 +425,7 @@ const LandingPage = () => {
 
         {/* Footer */}
         <footer className="py-8 px-4 text-center text-[#808080]">
-          <div className="max-w-6xl mx-auto border-t border-[#FFFFFF]/10 pt-8">
-
-          </div>
+          <div className="max-w-6xl mx-auto border-t border-[#FFFFFF]/10 pt-8"></div>
         </footer>
       </div>
     </div>
