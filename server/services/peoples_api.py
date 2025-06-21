@@ -30,6 +30,7 @@ class PeoplesApi:
                 if not data:
                     return {"message": "No data found for the given query."}
                 print("Data fetched successfully - ", data)
+                print("Data length - ", len(data))
                 return data
             else:
                 raise ValueError(f"Error fetching data: {response}")
