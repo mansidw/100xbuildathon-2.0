@@ -272,7 +272,7 @@ def chat_to_elastic():
         summary_prompt = f"""
         You are an expert recruiter assistant. Given the following global talent data search results, create a comprehensive and well-structured response in markdown format.
 
-        Your response should include the following sections:
+        Your response should include the following sections for each candidate:
         
         ## Candidate Profiles
         For each person found, create a subsection using their actual name (e.g., ### John Doe). If no name is available, use "### Candidate [Number]". Then, list their details using bullet points with bolded labels.
@@ -291,9 +291,23 @@ def chat_to_elastic():
         - **Professional Links**:
             - Company Website: [claravest.com](https://claravest.com)
 
+        ### Background Verification Report
+        This background verification report is based on publicly available information. For a comprehensive check, a third-party service is recommended.
+        
+        **Verification Process Overview:**
+        Our process involves cross-referencing information from professional networks like LinkedIn and code repositories like GitHub. We check for:
+        1.  **Work History Consistency**: Comparing roles and timelines on LinkedIn with resume data.
+        2.  **Technical Skills Validation**: Reviewing public activity on GitHub for evidence of claimed skills.
+        3.  **Online Presence Check**: A general search for any public information that might be relevant.
+
+        **Candidate-Specific Findings:**
+        - **LinkedIn Profile**: [Provide a brief analysis of the candidate's LinkedIn. Mention if it appears professional and consistent. e.g., "John Doe's LinkedIn profile is comprehensive and aligns with typical roles in their field."]
+        - **GitHub Activity**: [Analyze their GitHub profile. e.g., "The GitHub profile shows activity in repositories related to Python and Machine Learning, supporting their listed skills." or "No public GitHub profile was found."]
+        - **Overall Assessment**: [Give a summary. e.g., "Based on public profiles, the candidate presents a consistent and professional online presence. Further verification is recommended."]
+
         **IMPORTANT FORMATTING RULES:**
         - Always use proper markdown syntax
-        - Use ### for candidate names (not #### or ##)
+        - Use ### for candidate names and the 'Background Verification Report' section.
         - Use ** for bold labels
         - Use - for bullet points
         - Ensure all links are properly formatted as markdown links
