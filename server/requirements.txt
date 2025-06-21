@@ -12,7 +12,7 @@ google-generativeai
 google-ai-generativelanguage
 litellm==1.68.0
 pandas==2.2.3
-psycopg2_binary==2.9.9
+psycopg2_binary==2.9.10
 PyPDF2==3.0.1
 python-dotenv==1.1.0
 Requests==2.32.3
