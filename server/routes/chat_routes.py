@@ -268,6 +268,8 @@ def chat_to_elastic():
         # Call People Data Labs API with the elastic query
         peoples_data = peoples_api.fetch_peoples_data(elastic_query)
 
+        print("People - ", peoples_data)
+
         # --- Enhanced Gemini summary for recruiter with LinkedIn/GitHub URLs ---
         summary_prompt = f"""
         You are an expert recruiter assistant. Given the following global talent data search results, create a comprehensive and well-structured response in markdown format.
@@ -314,7 +316,7 @@ def chat_to_elastic():
         - If the data is empty, simply state: "No candidates found matching your criteria."
 
         Data:
-        {json.dumps(peoples_data)[:8000]}
+        {json.dumps(peoples_data)}
         """
         summary_llm = ChatGoogleGenerativeAI(
             model="gemini-2.0-flash",
