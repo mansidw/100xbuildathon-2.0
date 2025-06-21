@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Typewriter } from "react-simple-typewriter";
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import PropTypes from 'prop-types';
+import PropTypes from "prop-types";
 
 const RecruiterChatInterface = () => {
   const {
@@ -107,6 +107,7 @@ const RecruiterChatInterface = () => {
             className="flex-1 flex items-center justify-center relative"
           >
             {/* Logout button in top right for welcome screen */}
+
             <button
               onClick={handleLogout}
               className="absolute top-6 right-6 px-4 py-2 bg-primary text-primary-foreground rounded-lg shadow hover:bg-primary/90 transition"
@@ -129,7 +130,7 @@ const RecruiterChatInterface = () => {
                 className="text-4xl font-bold mb-4 text-[#FFFFFF]"
               >
                 <Typewriter
-                  words={["Hire AI"]}
+                  words={["Recruiter बंधू "]}
                   cursor
                   cursorStyle="_"
                   typeSpeed={70}
@@ -361,50 +362,50 @@ const MemoizedInputArea = React.memo(
 );
 
 // Memoized message list component
-const MemoizedMessageList = React.memo(({ messages, followupLoading, handleSendMessage }) => {
-  if (messages.length === 0) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center py-12"
-      >
-        <Bot size={48} className="mx-auto mb-4 text-[#808080]" />
-        <p className="text-[#FFFFFF] mb-2 text-lg">
-          Ready to analyze your data!
-        </p>
-        <p className="text-sm text-[#808080]">
-          Ask questions about candidate insights, skills analysis,
-          or hiring recommendations.
-        </p>
-      </motion.div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {messages.map((message) => (
+const MemoizedMessageList = React.memo(
+  ({ messages, followupLoading, handleSendMessage }) => {
+    if (messages.length === 0) {
+      return (
         <motion.div
-          key={message.id}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          layout
+          className="text-center py-12"
         >
-          <ChatMessage
-            message={message}
-            isLoading={message.isLoading}
-            onFollowup={
-              followupLoading ? undefined : handleSendMessage
-            }
-          />
+          <Bot size={48} className="mx-auto mb-4 text-[#808080]" />
+          <p className="text-[#FFFFFF] mb-2 text-lg">
+            Ready to analyze your data!
+          </p>
+          <p className="text-sm text-[#808080]">
+            Ask questions about candidate insights, skills analysis, or hiring
+            recommendations.
+          </p>
         </motion.div>
-      ))}
-    </div>
-  );
-});
+      );
+    }
 
-MemoizedInputArea.displayName = 'MemoizedInputArea';
+    return (
+      <div className="space-y-6">
+        {messages.map((message) => (
+          <motion.div
+            key={message.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            layout
+          >
+            <ChatMessage
+              message={message}
+              isLoading={message.isLoading}
+              onFollowup={followupLoading ? undefined : handleSendMessage}
+            />
+          </motion.div>
+        ))}
+      </div>
+    );
+  }
+);
+
+MemoizedInputArea.displayName = "MemoizedInputArea";
 MemoizedInputArea.propTypes = {
   message: PropTypes.string.isRequired,
   setMessage: PropTypes.func.isRequired,

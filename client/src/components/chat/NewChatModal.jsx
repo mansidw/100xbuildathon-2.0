@@ -80,6 +80,30 @@ const NewChatModal = ({
                                     Global Chat
                                 </button>
                             </div>
+                            
+                            {/* Chat type descriptions */}
+                            <div className="mb-8 p-4 bg-[#FFFFFF]/5 rounded-lg border border-[#FFFFFF]/10">
+                                {chatType === 'database' ? (
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-[#FFFFFF] mb-2">Database Chat</h3>
+                                        <p className="text-[#808080] text-sm">
+                                            Analyze your uploaded candidate data with AI-powered insights. 
+                                            Get detailed analysis of skills, experience, and recommendations 
+                                            based on your specific job requirements.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-[#FFFFFF] mb-2">Global Chat</h3>
+                                        <p className="text-[#808080] text-sm">
+                                            Search the global talent pool with context-aware conversations. 
+                                            Find candidates worldwide with LinkedIn/GitHub profiles, 
+                                            experience levels, and professional backgrounds. 
+                                            Maintains conversation context for better follow-up searches.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                             {isProcessing ? (
                                 <motion.div
                                     initial={{ opacity: 0 }}

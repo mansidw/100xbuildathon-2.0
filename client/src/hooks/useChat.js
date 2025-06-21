@@ -36,7 +36,7 @@ export const useChat = () => {
         if (tablesData && Array.isArray(tablesData.tables)) {
           // Filter out system tables
           const userTables = tablesData.tables.filter(tableName => 
-            !['rejected_candidates', 'candidates'].includes(tableName)
+            !['rejected_candidates', 'candidates', 'users'].includes(tableName)
           );
 
           // Convert tables data to chat format
@@ -237,7 +237,22 @@ export const useChat = () => {
       ));
       setActiveChat(updatedChat);
       try {
-        const response = await sendGlobalChatMessage(messageText);
+        // Prepare chat context from last 5 messages
+        const chatContext = activeChat.messages
+          .filter(msg => msg.type === 'user' || msg.type === 'ai')
+          .slice(-10) // Get last 10 messages (5 pairs)
+          .reduce((acc, msg, index, arr) => {
+            if (msg.type === 'user' && index + 1 < arr.length && arr[index + 1].type === 'ai') {
+              acc.push({
+                user_message: msg.content,
+                assistant_message: arr[index + 1].content
+              });
+            }
+            return acc;
+          }, [])
+          .slice(-5); // Keep only last 5 pairs
+
+        const response = await sendGlobalChatMessage(messageText, chatContext);
         const aiMessage = {
           id: loadingMessage.id,
           type: 'ai',

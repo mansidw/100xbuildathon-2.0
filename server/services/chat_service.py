@@ -22,6 +22,7 @@ import uuid
 from datetime import datetime
 from composio_openai import ComposioToolSet
 from composio import App, Action
+import traceback
 
 load_dotenv()
 
@@ -1081,6 +1082,7 @@ class ChatService:
                     }
                 except Exception as e:
                     print("Mail could not be sent! - ", e)
+                    traceback.print_exc()
                     # return {"canned_response":f"The email was successfully sent to {candidate_details['email']}"}
                     return {"canned_response": f"The email could not be sent!"}
 
@@ -1088,6 +1090,7 @@ class ChatService:
                 return {"canned_response": f"The email of the candidate not found."}
         except Exception as e:
             print("Error parsing LLM email JSON:", e)
+            traceback.print_exc()
             email_payload = {
                 "name": "Unknown",
                 "content": "Sorry, failed to generate email content. Please rephrase the request.",
@@ -1148,6 +1151,7 @@ class ChatService:
                     }
                 except Exception as e:
                     print("Calendar event could not be sent! - ", e)
+                    traceback.print_exc()
                     # return {"canned_response":f"The email was successfully sent to {candidate_details['email']}"}
                     return {"canned_response": f"The calendar event could not be sent!"}
             else:
@@ -1155,6 +1159,7 @@ class ChatService:
 
         except Exception as e:
             print("Error parsing event payload:", e)
+            traceback.print_exc()
             event_payload = {
                 "name": "Unknown",
                 "datetime": "2025-01-01T00:00:00",
@@ -1217,4 +1222,5 @@ class ChatService:
             return raw_output
 
         except Exception as e:
+            traceback.print_exc()
             raise Exception(f"Error getting job description: {str(e)}")
