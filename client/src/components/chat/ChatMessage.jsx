@@ -21,6 +21,58 @@ const ChatMessage = React.memo(({ message, isLoading, onFollowup }) => {
 
     const professionalLinks = !isUser && !isLoading ? extractLinks(message.content) : [];
 
+    // Function to safely render markdown with fallback
+    const renderContent = (content) => {
+        if (!content || typeof content !== 'string') {
+            return <div className="text-[#808080]">No content available</div>;
+        }
+
+        // Check if content contains markdown elements
+        const hasMarkdown = /[#*`\[\]()]/.test(content);
+        
+        if (!hasMarkdown) {
+            // If no markdown detected, render as plain text with line breaks
+            return (
+                <div className="whitespace-pre-wrap text-[#FFFFFF]/90">
+                    {content}
+                </div>
+            );
+        }
+
+        try {
+            return (
+                <div className="prose prose-invert max-w-none">
+                    <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                            a: ({ node, ...props }) => (
+                                <a {...props} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 underline" />
+                            ),
+                            h2: (props) => <h2 {...props} className="text-xl font-bold border-b border-gray-700 pb-2 mb-4" />,
+                            h3: (props) => <h3 {...props} className="text-lg font-semibold mb-3" />,
+                            ul: (props) => <ul {...props} className="list-disc pl-5 space-y-2" />,
+                            li: (props) => <li {...props} className="text-gray-300" />,
+                            p: (props) => <p {...props} className="text-gray-300 mb-2" />,
+                            strong: (props) => <strong {...props} className="text-white font-semibold" />,
+                            code: (props) => <code {...props} className="bg-[#FFFFFF]/10 px-1 py-0.5 rounded text-sm" />,
+                            pre: (props) => <pre {...props} className="bg-[#FFFFFF]/10 p-3 rounded-lg overflow-x-auto" />,
+                        }}
+                    >
+                        {content}
+                    </ReactMarkdown>
+                </div>
+            );
+        } catch (error) {
+            console.error('Markdown parsing error:', error);
+            // Fallback to plain text with line breaks
+            return (
+                <div className="whitespace-pre-wrap text-[#FFFFFF]/90">
+                    {content}
+                </div>
+            );
+        }
+    };
+
     return (
         <div className={`flex gap-4 ${isUser ? 'justify-end' : 'justify-start'}`}>
             {!isUser && (
@@ -36,24 +88,7 @@ const ChatMessage = React.memo(({ message, isLoading, onFollowup }) => {
                         <span className="loading-dot delay-200">.</span>
                     </div>
                 ) : (
-                    <div className="prose prose-invert max-w-none">
-                        <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                                a: ({ node, ...props }) => (
-                                    <a {...props} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 underline" />
-                                ),
-                                h2: (props) => <h2 {...props} className="text-xl font-bold border-b border-gray-700 pb-2 mb-4" />,
-                                h3: (props) => <h3 {...props} className="text-lg font-semibold mb-3" />,
-                                ul: (props) => <ul {...props} className="list-disc pl-5 space-y-2" />,
-                                li: (props) => <li {...props} className="text-gray-300" />,
-                                p: (props) => <p {...props} className="text-gray-300 mb-2" />,
-                                strong: (props) => <strong {...props} className="text-white font-semibold" />,
-                            }}
-                        >
-                            {message.content}
-                        </ReactMarkdown>
-                    </div>
+                    renderContent(message.content)
                 )}
                 {Array.isArray(message.followups) && message.followups.length > 0 && (
                     <div className="flex flex-wrap gap-3 mt-6 justify-start">

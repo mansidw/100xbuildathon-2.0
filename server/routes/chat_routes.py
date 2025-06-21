@@ -275,7 +275,7 @@ def chat_to_elastic():
         Your response should include the following sections:
         
         ## Candidate Profiles
-        For each person found, create a subsection for them (e.g., ### Candidate 1: [Name]). Then, list their details using bullet points with bolded labels.
+        For each person found, create a subsection using their actual name (e.g., ### John Doe). If no name is available, use "### Candidate [Number]". Then, list their details using bullet points with bolded labels.
         
         - **Name**: 
         - **Current Role**:
@@ -291,7 +291,13 @@ def chat_to_elastic():
         - **Professional Links**:
             - Company Website: [claravest.com](https://claravest.com)
 
-        If the data is empty, simply state: "No candidates found matching your criteria."
+        **IMPORTANT FORMATTING RULES:**
+        - Always use proper markdown syntax
+        - Use ### for candidate names (not #### or ##)
+        - Use ** for bold labels
+        - Use - for bullet points
+        - Ensure all links are properly formatted as markdown links
+        - If the data is empty, simply state: "No candidates found matching your criteria."
 
         Data:
         {json.dumps(peoples_data)[:8000]}

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, FileText, Loader2, Briefcase } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getJobDescription } from '../../services/api';
 import toast from 'react-hot-toast';
+import PropTypes from 'prop-types';
 
 const JobDescriptionModal = ({ isOpen, onClose, tableName }) => {
   const [jobDescription, setJobDescription] = useState('');
@@ -113,7 +114,7 @@ const JobDescriptionModal = ({ isOpen, onClose, tableName }) => {
                       <FileText size={20} className="text-[#808080]" />
                     </div>
                     <p className="text-[#FFFFFF] font-medium mb-1">No job description available</p>
-                    <p className="text-[#808080] text-sm">The job description for this role hasn't been uploaded yet.</p>
+                    <p className="text-[#808080] text-sm">The job description for this role hasn&apos;t been uploaded yet.</p>
                   </div>
                 ) : (
                   jobPoints.map((point, index) => (
@@ -148,6 +149,12 @@ const JobDescriptionModal = ({ isOpen, onClose, tableName }) => {
       </motion.div>
     </AnimatePresence>
   );
+};
+
+JobDescriptionModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  tableName: PropTypes.string.isRequired,
 };
 
 export default JobDescriptionModal; 
