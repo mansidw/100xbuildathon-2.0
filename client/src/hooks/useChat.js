@@ -94,13 +94,13 @@ export const useChat = () => {
             const messages = [];
             chatsArr.forEach(([question, answer], idx) => {
               messages.push({
-                id: `${activeChat.tableName}-q-${idx}`,
+                id: `${activeChat.tableName}-user-${idx}-${Date.now()}`,
                 type: 'user',
                 content: question,
                 timestamp: ''
               });
               messages.push({
-                id: `${activeChat.tableName}-a-${idx}`,
+                id: `${activeChat.tableName}-ai-${idx}-${Date.now()}`,
                 type: 'ai',
                 content: answer,
                 timestamp: ''
@@ -184,7 +184,7 @@ export const useChat = () => {
         jdFileName: jdFile.name,
         candidatesFileName: candidatesFile.name,
         messages: [{
-          id: Date.now(),
+          id: `system-${Date.now()}-${Math.random()}`,
           type: 'system',
           content: result.message,
           timestamp: new Date().toLocaleTimeString()
@@ -216,13 +216,13 @@ export const useChat = () => {
     // If global chat, use sendGlobalChatMessage
     if (activeChat.type === 'global') {
       const userMessage = {
-        id: Date.now(),
+        id: `user-${Date.now()}-${Math.random()}`,
         type: 'user',
         content: messageText,
         timestamp: new Date().toLocaleTimeString(),
       };
       const loadingMessage = {
-        id: Date.now() + 1,
+        id: `ai-${Date.now()}-${Math.random()}`,
         type: 'ai',
         content: '',
         isLoading: true,
@@ -271,13 +271,13 @@ export const useChat = () => {
       }
     }
     const userMessage = {
-        id: Date.now(),
+        id: `user-${Date.now()}-${Math.random()}`,
         type: 'user',
         content: messageText,
         timestamp: new Date().toLocaleTimeString()
     };
     const loadingMessage = {
-        id: Date.now() + 1,
+        id: `ai-${Date.now()}-${Math.random()}`,
         type: 'ai',
         content: '',
         isLoading: true,

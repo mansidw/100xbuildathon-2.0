@@ -260,43 +260,11 @@ const RecruiterChatInterface = () => {
 
             {/* Messages - Scrollable */}
             <div className="flex-1 overflow-y-auto p-6">
-              <AnimatePresence>
-                {activeChat.messages.length === 0 ? (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-center py-12"
-                  >
-                    <Bot size={48} className="mx-auto mb-4 text-[#808080]" />
-                    <p className="text-[#FFFFFF] mb-2 text-lg">
-                      Ready to analyze your data!
-                    </p>
-                    <p className="text-sm text-[#808080]">
-                      Ask questions about candidate insights, skills analysis,
-                      or hiring recommendations.
-                    </p>
-                  </motion.div>
-                ) : (
-                  <div className="space-y-6">
-                    {activeChat.messages.map((message, index) => (
-                      <motion.div
-                        key={index}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                      >
-                        <ChatMessage
-                          message={message}
-                          isLoading={message.isLoading}
-                          onFollowup={
-                            followupLoading ? undefined : handleSendMessage
-                          }
-                        />
-                      </motion.div>
-                    ))}
-                  </div>
-                )}
-              </AnimatePresence>
+              <MemoizedMessageList
+                messages={activeChat.messages}
+                followupLoading={followupLoading}
+                handleSendMessage={handleSendMessage}
+              />
               <div ref={messagesEndRef} />
             </div>
 
@@ -350,7 +318,7 @@ const MemoizedInputArea = React.memo(
         <div className="flex gap-3">
           <div className="flex items-center gap-4 w-full">
             <button
-              onClick={() => {}}
+              onClick={() => { }}
               className="px-6 py-2 bg-[#FFFFFF] text-[#000000] hover:bg-[#FFFFFF]/90 rounded-lg transition-all duration-300 text-base font-medium shadow hover:shadow-lg whitespace-nowrap"
             >
               About Job
@@ -382,6 +350,50 @@ const MemoizedInputArea = React.memo(
   }
 );
 
+// Memoized message list component
+const MemoizedMessageList = React.memo(({ messages, followupLoading, handleSendMessage }) => {
+  if (messages.length === 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center py-12"
+      >
+        <Bot size={48} className="mx-auto mb-4 text-[#808080]" />
+        <p className="text-[#FFFFFF] mb-2 text-lg">
+          Ready to analyze your data!
+        </p>
+        <p className="text-sm text-[#808080]">
+          Ask questions about candidate insights, skills analysis,
+          or hiring recommendations.
+        </p>
+      </motion.div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {messages.map((message) => (
+        <motion.div
+          key={message.id}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          layout
+        >
+          <ChatMessage
+            message={message}
+            isLoading={message.isLoading}
+            onFollowup={
+              followupLoading ? undefined : handleSendMessage
+            }
+          />
+        </motion.div>
+      ))}
+    </div>
+  );
+});
+
 MemoizedInputArea.displayName = 'MemoizedInputArea';
 MemoizedInputArea.propTypes = {
   message: PropTypes.string.isRequired,
@@ -389,6 +401,13 @@ MemoizedInputArea.propTypes = {
   handleKeyPress: PropTypes.func.isRequired,
   handleSendMessage: PropTypes.func.isRequired,
   disabled: PropTypes.bool.isRequired,
+};
+
+MemoizedMessageList.displayName = 'MemoizedMessageList';
+MemoizedMessageList.propTypes = {
+  messages: PropTypes.array.isRequired,
+  followupLoading: PropTypes.bool.isRequired,
+  handleSendMessage: PropTypes.func.isRequired,
 };
 
 export default RecruiterChatInterface;
