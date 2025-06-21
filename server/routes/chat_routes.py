@@ -162,73 +162,82 @@ def chat_to_elastic():
     try:
         data = request.get_json()
         prompt = data.get("prompt", "")
+        chat_context = data.get("chat_context", [])  # Last 5 chats as context
         if not prompt:
             return jsonify({"error": "Missing prompt"}), 400
         
+        # Build context from previous chats
+        context_string = ""
+        if chat_context and len(chat_context) > 0:
+            context_string = "\n\nPrevious conversation context:\n"
+            for i, chat in enumerate(chat_context[-5:], 1):  # Last 5 chats
+                if isinstance(chat, dict) and 'user_message' in chat and 'assistant_message' in chat:
+                    context_string += f"{i}. User: {chat['user_message']}\n   Assistant: {chat['assistant_message']}\n"
+                elif isinstance(chat, dict) and 'user' in chat and 'assistant' in chat:
+                    context_string += f"{i}. User: {chat['user']}\n   Assistant: {chat['assistant']}\n"
+        
         # Person schema summary for Gemini
-        person_schema = '''
-        Person Schema Fields:
-        - first_name: The person's first name (string)
-        - full_name: The person's full name (string)
-        - id: Unique persistent identifier for the person (string)
-        - last_initial: First letter of last name (string, 1 char)
-        - last_name: The person's last name (string)
-        - middle_initial: First letter of middle name (string, 1 char)
-        - middle_name: The person's middle name (string)
-        - name_aliases: Other names/aliases (array of strings)
-        - emails: List of email objects (address, type, first_seen, last_seen, num_sources)
-        - mobile_phone: Personal mobile phone (string)
-        - personal_emails: All personal emails (array of strings)
-        - phone_numbers: All phone numbers (array of strings)
-        - phones: List of phone objects (number, first_seen, last_seen, num_sources)
-        - recommended_personal_email: Best personal email (string)
-        - work_email: Current work email (string)
-        - job_company_*: Current company fields (name, id, industry, size, etc.)
-        - job_title: Current job title (string)
-        - job_title_role: Derived job role (string)
-        - job_title_levels: Derived job levels (array)
-        - job_start_date: Date started current job (string)
-        - job_summary: User-inputted job summary (string)
-        - birth_date: Date of birth (string)
-        - birth_year: Year of birth (int)
-        - sex: Person's sex (string)
-        - languages: Languages known (array of objects)
-        - education: Education info (array of objects)
-        - location_*: Current address fields (country, region, locality, etc.)
-        - profiles: Social profiles (array of objects)
-        - skills: Self-reported skills (array of strings)
-        - summary: Personal summary (string)
-        - experience: Work experience history (array of objects). For querying years of experience, use 'inferred_years_experience'.
-        - inferred_years_experience: Inferred total years of work experience (integer, 0-100). Use this for range queries on experience length.
-        - ... (see docs for full list)
-        '''
+        
 
         gemini_instruction = f"""
-        You are an expert in Elasticsearch and the Person schema below. Given the following user prompt, generate a JSON Elasticsearch query in this STRICT format only, using only valid fields from the schema:
+        You are an expert at generating Elasticsearch queries for a specific API. Your task is to analyze the user's prompt and classify it into one of two categories: "Talent Search" or "Background Verification".
 
-        {person_schema}
+        Based on the classification, generate a precise JSON Elasticsearch query using ONLY the structures provided below.
 
-        Example query format:
+        **1. Intent Classification:**
+        - **Talent Search**: User is looking for candidates with specific skills, experience, or location.
+        - **Background Verification**: User is searching for a specific person by name.
+
+        **2. Strict Query Generation Rules:**
+
+        **If "Talent Search", use this EXACT structure. Do not add other clauses:**
+        ```json
         {{
-        "query": {{
+          "query": {{
             "bool": {{
-                "must": [
-                    {{"term": {{"location_country": "mexico"}}}},
-                    {{"term": {{"job_title_role": "health"}}}},
-                    {{"exists": {{"field": "phone_numbers"}}}}
-                ]
+              "must": [
+                {{ "term": {{ "location_locality": "mumbai" }} }},
+                {{ "range": {{ "inferred_years_experience": {{ "gte": 5 }} }} }},
+                {{
+                  "bool": {{
+                    "should": [
+                      {{ "match": {{ "job_title": "AI developer" }} }},
+                      {{ "match": {{ "skills": "artificial intelligence" }} }}
+                    ]
+                  }}
+                }}
+              ]
             }}
+          }},
+          "size": 10
         }}
-        }}
+        ```
 
-        - Only return the JSON in the above format, filling in the query as needed based on the prompt.
-        - Do not add any explanation or extra text.
-        - If the prompt is empty, return the default query as above.
-        - Use only fields from the Person schema above.
-        - If the user asks for a field not in the schema, ignore it.
-        - Use the most relevant fields for the user's intent.
-        Prompt:
-        {prompt}
+        **If "Background Verification", use this EXACT structure:**
+        ```json
+        {{
+          "query": {{
+            "bool": {{
+              "must": [
+                {{ "match": {{ "first_name": {{ "query": "John", "operator": "and" }} }} }},
+                {{ "match": {{ "last_name": {{ "query": "Doe", "operator": "and" }} }} }}
+              ]
+            }}
+          }},
+          "size": 1
+        }}
+        ```
+        
+        **CRITICAL INSTRUCTIONS:**
+        - Return **ONLY** the raw JSON query. No text, explanations, or markdown.
+        - **DO NOT** use any fields or clauses not present in the examples above. The `minimum_should_match` clause is **NOT SUPPORTED** and must not be used.
+        - Extract entities from the user's prompt (like location, skills, name) and place them into the templates.
+        
+        **Conversation Context:**
+        {context_string}
+
+        **Current User Prompt:**
+        "{prompt}"
         """
 
         from langchain_google_genai import ChatGoogleGenerativeAI
@@ -252,17 +261,40 @@ def chat_to_elastic():
         try:
             elastic_query = json.loads(content)
         except Exception:
-            elastic_query = content
-        print("Elastic Query:", elastic_query)
+            elastic_query = content # Keep as string if not valid json
+        
+        print("Generated Elasticsearch Query:", elastic_query)
+        
         # Call People Data Labs API with the elastic query
         peoples_data = peoples_api.fetch_peoples_data(elastic_query)
 
-        # --- Gemini summary for recruiter ---
+        # --- Enhanced Gemini summary for recruiter with LinkedIn/GitHub URLs ---
         summary_prompt = f"""
-        You are an expert recruiter assistant. Given the following global talent data search results, write a friendly, concise, and human-readable summary for a recruiter. Highlight the most relevant insights, trends, or interesting findings. If the data is empty, say so politely. Do not include raw JSON or code, just a readable summary.
+        You are an expert recruiter assistant. Given the following global talent data search results, create a comprehensive and well-structured response in markdown format.
+
+        Your response should include the following sections:
+        
+        ## Candidate Profiles
+        For each person found, create a subsection for them (e.g., ### Candidate 1: [Name]). Then, list their details using bullet points with bolded labels.
+        
+        - **Name**: 
+        - **Current Role**:
+        - **Company**:
+        - **Location**:
+        - **Years of Experience**: (use 'inferred_years_experience' if available, otherwise calculate from experience)
+        - **Key Skills**: (list top 5-7 skills)
+        - **Contact**: (provide email if available, otherwise 'Not available')
+        - **Social Profiles**: 
+            - LinkedIn: [linkedin.com/in/username](https://linkedin.com/in/username)
+            - GitHub: [github.com/username](https://github.com/username)
+            - Twitter: [twitter.com/username](https://twitter.com/username)
+        - **Professional Links**:
+            - Company Website: [claravest.com](https://claravest.com)
+
+        If the data is empty, simply state: "No candidates found matching your criteria."
 
         Data:
-        {json.dumps(peoples_data)[:8000]}  # Truncate to avoid token overflow
+        {json.dumps(peoples_data)[:8000]}
         """
         summary_llm = ChatGoogleGenerativeAI(
             model="gemini-2.0-flash",

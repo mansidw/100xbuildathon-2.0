@@ -8,21 +8,22 @@ class PeoplesApi:
             api_key=os.getenv('PEOPLES_API_KEY')
         )
 
-    def fetch_peoples_data(self,elastic_query):
+    def fetch_peoples_data(self, elastic_query):
         """
-        Fetches Peoples data from People Data Labs
+        Fetches Peoples data from People Data Labs using an Elasticsearch query.
         """
         print("API key ", os.getenv('PEOPLES_API_KEY'))
         
-        PARAMS = {
-            "query": elastic_query,
-            "limit": 1000,  # Adjust limit as needed
-            "pretty": True,
-        }
-        
-        # Pass the parameters object to the Person Search API
         try:
-            response = self.client.person.search(**PARAMS).json()
+            # The search method expects a dictionary for the `query` parameter.
+            # Other parameters like `size` are passed as keyword arguments.
+            size = elastic_query.pop('size', 10) # Default to 10 if not in query
+
+            response = self.client.person.search(
+                query=elastic_query,
+                size=size,
+                pretty=True
+            ).json()
             
             if response.get('status') == 200:
                 data = response.get('data', [])
