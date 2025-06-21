@@ -33,7 +33,7 @@ const Login = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-[#000000]">
+        <div className="min-h-screen flex items-center justify-center bg-[#000000] font-['Poppins']">
             <Card className="w-full max-w-md shadow-2xl bg-card border border-border">
                 <CardHeader>
                     <CardTitle className="text-center text-3xl mb-2 text-primary">Sign In</CardTitle>

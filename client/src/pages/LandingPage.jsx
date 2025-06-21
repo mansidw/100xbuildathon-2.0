@@ -13,8 +13,8 @@ const LandingPage = () => {
   // Initial space animation
   const spaceAnimation = {
     initial: { opacity: 0, scale: 0.9 },
-    animate: { 
-      opacity: 1, 
+    animate: {
+      opacity: 1,
       scale: 1,
       transition: { duration: 1.8, ease: "easeOut" }
     }
@@ -75,7 +75,7 @@ const LandingPage = () => {
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    
+
     renderer.setSize(window.innerWidth, window.innerHeight);
     containerRef.current.appendChild(renderer.domElement);
     sceneRef.current = scene;
@@ -161,14 +161,14 @@ const LandingPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#000000] text-[#FFFFFF] overflow-hidden">
+    <div className="min-h-screen bg-[#000000] text-[#FFFFFF] overflow-hidden font-['Poppins']">
       {/* Three.js Background */}
       <div ref={containerRef} className="fixed inset-0 z-0" />
 
       {/* Content */}
       <div className="relative z-10">
         {/* Hero Section */}
-        <motion.div 
+        <motion.div
           className="min-h-[90vh] flex flex-col items-center justify-center px-4 py-16"
           initial="initial"
           animate="animate"
@@ -184,7 +184,7 @@ const LandingPage = () => {
               <Bot size={64} className="text-[#FFFFFF]" />
             </motion.div>
 
-            <motion.h1 
+            <motion.h1
               className="text-6xl md:text-7xl font-bold mb-6"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
@@ -199,7 +199,7 @@ const LandingPage = () => {
               />
             </motion.h1>
 
-            <motion.p 
+            <motion.p
               className="text-xl md:text-2xl text-[#808080] mb-12 max-w-2xl mx-auto"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -235,7 +235,7 @@ const LandingPage = () => {
         </motion.div>
 
         {/* Stats Section */}
-        <motion.div 
+        <motion.div
           className="py-16 px-4 bg-[#FFFFFF]/3 backdrop-blur-lg"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
@@ -259,7 +259,7 @@ const LandingPage = () => {
 
         {/* Features Section */}
         <div className="py-24 px-4">
-          <motion.h2 
+          <motion.h2
             className="text-4xl font-bold text-center mb-16"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -290,7 +290,7 @@ const LandingPage = () => {
 
         {/* Benefits Section */}
         <div className="py-24 px-4 bg-[#FFFFFF]/3 backdrop-blur-lg">
-          <motion.h2 
+          <motion.h2
             className="text-4xl font-bold text-center mb-16"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -321,7 +321,7 @@ const LandingPage = () => {
 
         {/* How It Works Section */}
         <div className="py-24 px-4">
-          <motion.h2 
+          <motion.h2
             className="text-4xl font-bold text-center mb-16"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -340,9 +340,9 @@ const LandingPage = () => {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: "-50px 0px" }}
                   transition={{ delay: index * 0.1 }}
-                  whileHover={{ scale: 1.05, backgroundColor: '#FFFFFF', color: '#FFFFFF'  }}
+                  whileHover={{ scale: 1.05, backgroundColor: '#FFFFFF', color: '#FFFFFF' }}
                 >
-                   {index < howItWorksSteps.length - 1 && (
+                  {index < howItWorksSteps.length - 1 && (
                     <div className="hidden md:block absolute top-1/2 right-0 w-8 h-1 bg-[#808080]/50 transform translate-x-full -translate-y-1/2"></div>
                   )}
                   <div className="w-16 h-16 bg-[#FFFFFF]/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-[#FFFFFF]/20">
@@ -357,7 +357,7 @@ const LandingPage = () => {
         </div>
 
         {/* CTA Section */}
-        <motion.div 
+        <motion.div
           className="py-24 px-4 text-center bg-[#FFFFFF]/3 backdrop-blur-lg"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
@@ -381,7 +381,7 @@ const LandingPage = () => {
         {/* Footer */}
         <footer className="py-8 px-4 text-center text-[#808080]">
           <div className="max-w-6xl mx-auto border-t border-[#FFFFFF]/10 pt-8">
-            
+
           </div>
         </footer>
       </div>

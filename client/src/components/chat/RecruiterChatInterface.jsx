@@ -86,7 +86,7 @@ const RecruiterChatInterface = () => {
   };
 
   return (
-    <div className="flex h-screen bg-[#000000] font-['Inter'] overflow-hidden">
+    <div className="flex h-screen bg-[#000000] font-['Poppins'] overflow-hidden">
       <ChatSidebar
         chats={chats}
         activeChat={activeChat}
